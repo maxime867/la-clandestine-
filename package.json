@@ -1,0 +1,13 @@
+{
+  "name": "la-serre-clandestine",
+  "version": "1.0.0",
+  "description": "Jeu 2D en vue de dessus avec multijoueur en ligne, sans compte.",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
