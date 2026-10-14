@@ -68,6 +68,18 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 | `PORT`     | `3000`     | port du serveur (Render le fixe tout seul) |
 | `DATA_DIR` | `./data`   | dossier des sauvegardes en ligne |
 
+## L'histoire
+
+Tu as dix-neuf ans et ton père vient de te mettre dehors (cinématique au début, « Passer » pour la sauter). Une carte « Objectif » en haut à gauche et une flèche jaune te guident :
+
+1. Va voir **El Refe**. Il t'apprend à vendre et te confie un labo, mais il prend **30 % de tout ce que tu gagnes, à vie**.
+2. Vends à ton premier client, entre dans ton labo, plante, arrose, récolte, fais sécher, remplis ton sac, fais tes premiers bénéfices.
+3. Choisis par quoi commencer : agrandir le labo, recruter un dealer ou acheter un véhicule.
+4. Achète un **téléphone** (supérette) : les gérants t'envoient des messages au lieu de venir te chercher.
+5. Débarrasse-toi d'El Refe pour effacer ta dette (👊 ou F). Ensuite : nouvelles variétés, jardinier, go fast, deuxième secteur, 10 M€.
+
+La police patrouille en permanence (plus le jour que la nuit) et te prend en chasse si tu chauffes, ou si une patrouille te voit vendre ou frapper quelqu'un.
+
 ## Le labo
 
 Au départ, le labo a déjà un bureau avec l'ordinateur, deux pots, un séchoir déjà installé, un robinet et 5 graines.

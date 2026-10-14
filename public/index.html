@@ -213,6 +213,37 @@ h2{font-size:18px}
   #toasts,#hud.car #toasts{top:auto;bottom:calc(200px + env(safe-area-inset-bottom));max-width:calc(100% - 24px);left:12px}
   .toast{font-size:12px;padding:5px 9px}
 }
+
+/* histoire : objectif, téléphone, cinématique */
+#quest{background:rgba(26,20,18,.88);border:1px solid #ffd24a;border-left:4px solid #ffd24a;border-radius:8px;padding:6px 10px;max-width:330px;display:flex;flex-direction:column;gap:2px;cursor:pointer;pointer-events:auto}
+#quest small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#ffd24a;font-weight:600}
+#quest b{font-size:14px;line-height:1.25}
+#quest span{font-size:12.5px;color:var(--fg);line-height:1.4}
+#quest #qP{font-family:var(--mono);font-size:12px;color:#ffd24a}
+#quest em{font-size:12.5px;color:var(--muted);font-style:italic;line-height:1.4}
+#quest.flash{animation:qflash .4s ease 3}
+@keyframes qflash{50%{background:rgba(255,210,74,.35)}}
+#bPhone{position:relative}
+#bPhone i{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--heat);color:#fff;font:600 10px/16px var(--body);font-style:normal;text-align:center;padding:0 4px}
+#bPhone i:empty{display:none}
+#bPhone.ring{animation:ring 1.2s ease infinite}
+@keyframes ring{0%,60%,100%{transform:rotate(0)}10%,30%{transform:rotate(-14deg)}20%,40%{transform:rotate(14deg)}}
+#cine{position:absolute;inset:0;z-index:20;cursor:pointer}
+#cine .lbox{position:absolute;left:0;right:0;height:11vh;background:#000}
+#cine .ltop{top:0}#cine .lbot{bottom:0}
+#cineSkip{position:absolute;top:calc(11vh + 10px);right:14px;font-size:13px}
+#cineSub{position:absolute;left:50%;bottom:calc(11vh + 18px);transform:translateX(-50%);width:min(680px,calc(100% - 32px));text-align:center;display:flex;flex-direction:column;gap:4px;background:rgba(10,8,8,.72);border-radius:10px;padding:12px 16px}
+#cineSub.in{animation:subin .35s ease}
+@keyframes subin{from{opacity:0;transform:translate(-50%,8px)}}
+#cineWho{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#ffd24a}
+#cineTxt{font-size:18px;line-height:1.45}
+#cineTxt.nar{font-style:italic;color:var(--muted)}
+#cineSub small{font-size:11px;color:var(--muted)}
+#cineTitle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;animation:tin 1.2s ease;pointer-events:none}
+#cineTitle small{font-size:14px;letter-spacing:.3em;text-transform:uppercase;color:#ffd24a}
+#cineTitle b{font-family:var(--display);font-size:clamp(34px,8vw,68px);color:#f3e6d6;text-shadow:0 3px 0 #000}
+@keyframes tin{from{opacity:0;letter-spacing:.2em}}
+@media (max-width:520px){#quest{max-width:calc(100vw - 190px)}#quest b{font-size:12.5px}#quest span,#quest em{font-size:11.5px}#cineTxt{font-size:15px}}
 </style>
 <script src="claude-shim.js"></script>
 </head>
@@ -231,6 +262,9 @@ h2{font-size:18px}
         <div class="chipbox life" id="hLifeBox" hidden><small>Vie</small><b id="hLife">100</b><div class="hbar"><i id="hLifeBar"></i></div></div>
         <div class="chipbox" id="hCasierBox" hidden><small>Casier</small><b id="hCasier">0/3</b></div>
       </div>
+      <div id="quest" class="hit" hidden role="button" tabindex="0" title="Objectif en cours : toucher pour voir le détail">
+        <small>Objectif</small><b id="qT"></b><span id="qP" hidden></span><span id="qD" hidden></span><em id="qS" hidden></em>
+      </div>
     </div>
     <div id="mmBack" class="hit" hidden></div>
     <div class="mmwrap">
@@ -241,6 +275,7 @@ h2{font-size:18px}
       <span class="pill hit" id="hOnline" hidden style="cursor:pointer;color:#7fd1ff"></span>
       <div class="iconrow">
         <button class="icon hit" id="bChat" hidden aria-label="Chat">💬</button>
+        <button class="icon hit" id="bPhone" hidden aria-label="Téléphone : messages des gérants">📱<i id="phN"></i></button>
         <button class="icon hit" id="bBag" aria-label="Sac à dos">🎒</button>
         <button class="icon hit" id="bSnd" aria-label="Couper le son">🔊</button>
       </div>
@@ -268,6 +303,13 @@ h2{font-size:18px}
     <button class="hit" id="bPunch" hidden aria-label="Frapper (F)" title="Frapper (F)">👊<small>Frapper</small></button>
   </div>
 
+  <div id="cine" hidden>
+    <div class="lbox ltop"></div><div class="lbox lbot"></div>
+    <button class="btn ghost" id="cineSkip">Passer ⏭</button>
+    <div id="cineSub"><b id="cineWho"></b><span id="cineTxt"></span><small>Touche l’écran pour continuer</small></div>
+    <div id="cineTitle" hidden><small>Chapitre 1</small><b>À la rue</b></div>
+  </div>
+
   <div id="menu" hidden>
     <div class="sheet">
       <header><h2 id="mTitle">Le labo</h2><button class="btn ghost" id="mClose">Fermer</button></header>
@@ -289,20 +331,21 @@ h2{font-size:18px}
   <div id="start" hidden>
     <div class="sheet pad">
       <h1>La Serre Clandestine</h1>
-      <p class="note">Le quartier des Lilas est découpé en quatre secteurs, tenus par quatre gangs. Tu choisis le tien. Les trois autres gérants viendront te parler, te proposer des alliances, des affaires et des services. Respecte-les : un gérant vexé envoie ses hommes.</p>
+      <p class="note">Dix-neuf ans, viré de chez toi, 150 € en poche. Dans le quartier des Lilas, un seul homme peut t’aider : El Refe. Il t’apprendra tout… contre 30 % de tes gains, à vie. Le quartier est découpé en quatre secteurs : les trois autres gérants te proposeront des alliances, des affaires et des services. Respecte-les : un gérant vexé envoie ses hommes.</p>
       <div class="list" id="goals">
         <div class="item"><b>Gagner</b><span>Atteins 10 000 000 € de cash.</span></div>
         <div class="item"><b>Perdre : la prison</b><span>Trois arrestations. Le casier s’efface d’un cran toutes les 8 minutes sans arrestation.</span></div>
+        <div class="item"><b>L’histoire</b><span>Une cinématique, puis des objectifs (en haut à gauche, flèche jaune) te guident : El Refe t’apprend à vendre et te confie un labo, puis tu choisis par quoi commencer. Un jour, il faudra te débarrasser de lui pour effacer ta dette. Achète un téléphone : les gérants t’enverront des messages au lieu de venir te chercher.</span></div>
         <div class="item"><b>Ton labo</b><span>Au départ : un bureau avec l’ordinateur, deux pots, un séchoir déjà installé, un robinet et 5 graines. Plante, arrose (l’arrosoir se remplit au robinet), taille, récolte, puis passe la récolte au séchoir : le produit séché va dans la réserve : remplis ton sac à dos aux étagères pour aller le vendre. C’est toi qui places les machines où tu veux, et tu peux payer pour agrandir le labo. Le reste s’achète à la jardinerie et à la graineterie, ou se commande à l’ordinateur, livré en camionnette.</span></div>
         <div class="item"><b>Commandes</b><span>À pied : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d’action à droite (ou E), Options (ou R), 👊 frapper (ou F), puis fouiller un passant KO. 🎒 (ou B) : sac à dos. En voiture : flèches à l’écran (ou ZQSD / flèches), DRIFT = frein à main (Espace). N : carte. T : chat. H : klaxon. G : go fast.</span></div>
-        <div class="item"><b>Jour et nuit</b><span>La nuit, les clients paient jusqu’à 25 % de plus et il y a moins de patrouilles. Le jour, plus de flics.</span></div>
+        <div class="item"><b>Jour et nuit, police</b><span>Des patrouilles tournent en permanence, plus nombreuses le jour. Elles te prennent en chasse si tu chauffes, si elles te voient vendre ou frapper quelqu’un. La nuit, les clients paient jusqu’à 25 % de plus.</span></div>
         <div class="item"><b>Multijoueur</b><span>Tous ceux qui ouvrent l’adresse du jeu se retrouvent dans la partie publique ; avec un code, partie privée. T : chat. Chacun garde son argent et son labo.</span></div>
         <div class="item"><b>Semer la police</b><span>Quand on te poursuit, descends de voiture devant une boutique et cache-toi avant que les flics ne soient trop près : ils perdent ta trace et la chaleur retombe vite.</span></div>
       </div>
       <div class="chips" id="goRow"><button class="btn" id="goBtn">Commencer</button></div>
       <div id="pickBox" hidden>
-        <h2 style="margin:4px 0 6px">Choisis ton gang</h2>
-        <p class="note">Tu prends la tête du gang d’un secteur. Chaque gang a un avantage et un défaut.</p>
+        <h2 style="margin:4px 0 6px">Choisis ton secteur</h2>
+        <p class="note">C’est là que tu as grandi, et là que tu bâtiras ton réseau. Chaque secteur a un avantage et un défaut.</p>
         <div class="dgrid" id="dgrid"></div>
       </div>
       <div><h2 style="margin:6px 0">Partie entre amis</h2><p class="note" style="margin-bottom:6px">Sans rien faire, tu es dans la partie publique avec tous ceux qui ont le jeu ouvert. Pour jouer seulement entre vous, crée une partie privée et donne le code.</p><div class="chips" style="align-items:center"><button class="btn ghost" id="partyNew">Créer une partie</button><input id="partyIn" placeholder="CODE" maxlength="5" aria-label="Code de partie" autocomplete="off" style="width:110px;letter-spacing:.18em"><button class="btn ghost" id="partyJoin">Rejoindre</button></div><p class="note" id="mpStartStatus" style="margin-top:6px">Multijoueur : connexion…</p><p class="note" id="partyMsg" role="status" style="margin-top:4px"></p></div>

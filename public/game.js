@@ -89,6 +89,7 @@ const GOODS={
   sac1:{name:'Sac de randonnée',desc:'Sac à dos de 10 places (au lieu de 6).',price:600,bag:1},
   sac2:{name:'Sac tactique',desc:'Sac à dos de 16 places.',price:4000,bag:2},
   sac3:{name:'Sac de voyage XXL',desc:'Sac à dos de 24 places.',price:15000,bag:3},
+  telephone:{name:'Téléphone prépayé',desc:'Les gérants t’envoient un message au lieu de venir te chercher.',price:300,max:1},
   sacs:{name:'Sacs de congélation',desc:'+20 de capacité de stock.',price:400,max:5},
   engrais:{name:'Engrais express',desc:'Fait avancer toutes tes plantes de 30 %. Usage unique.',price:250,use:()=>{G.lab.items.forEach(it=>{const p=it.pl;if(p&&p.hp>0&&p.p<1)p.p=Math.min(1,p.p+.3)});return 'Tes plantes ont drôlement bonne mine.'}},
   tisane:{name:'Tisane apaisante',desc:'Chaleur -15. Usage unique.',price:120,use:heatDown(15)},
@@ -117,7 +118,7 @@ const SHOPTYPES={
     greet:['« Bienvenue. On regarde, on ne touche pas. »','« Une pièce de collection ? Vous êtes au bon endroit. »'],
     talk:['« Le coffre blindé, c’est mon best-seller. Rien ne passe à travers. »','« Les collectionneurs paient bien. Une vitrine, ça fait respectable. »']},
   superette:{label:'Supérette',short:'Supérette',col:'#2e8b57',floor:'#2a3a30',deco:'rayons',items:['#e0b020','#c0392b','#3b6fd4','#f1e8d6'],
-    goods:['sacs','engrais','tisane'],names:['Mini-Marché 24h','Supérette Chez Ali','Épicerie du Coin'],clerks:['Ali','Mireille','Hakim'],
+    goods:['telephone','sacs','engrais','tisane'],names:['Mini-Marché 24h','Supérette Chez Ali','Épicerie du Coin'],clerks:['Ali','Mireille','Hakim'],
     greet:['« Bonjour ! Besoin de quelque chose ? »','« On ferme jamais. Même la nuit. »'],
     talk:['« Le quartier a changé. Les clients ne sont plus les mêmes. »','« Je vois tout passer ici. Tout. »']},
   jardinerie:{label:'Jardinerie',short:'Jardinerie',col:'#6aa84f',floor:'#2c3a24',deco:'plantes',items:['#6aa84f','#8fbf4a','#c98aff','#e0b020'],
@@ -179,7 +180,7 @@ const KEY='serre3d-v1';
 const LAB_COLS=6,LAB_ROWS=4,LAB_MAX=LAB_COLS*LAB_ROWS;
 /* au départ, le labo a déjà un pot, un séchoir, un robinet (arrosoir plein) et quelques graines */
 const CAN_MAX=8;
-const newG=(home='cite')=>({v:5,home,inv:{},look:{},began:0,cash:150,bank:0,heat:0,hp:100,strikes:0,strikeT:0,t:0,sel:'jardin',
+const newG=(home='cite')=>({v:5,home,story:{q:'intro',cut:0,dead:0,paid:0,f:{}},inv:{},look:{},began:0,cash:150,bank:0,heat:0,hp:100,strikes:0,strikeT:0,t:0,sel:'jardin',
   seeds:{jardin:5},raw:{},stock:{},lv:{},unlocked:{jardin:1,skunk:1},owned:{foot:1},veh:'foot',earned:0,can:CAN_MAX,deliv:[],
   lab:{items:[{id:'pot',d:5.2,s:-1.5,pl:null},{id:'pot',d:5.2,s:.5,pl:null},{id:'sechoir',d:4.2,s:4.4,pl:null}],store:{}},bag:{lv:0,p:{},it:{}},
   rel:{baron:0,momo:0,vega:0,tonton:0},ally:{},
@@ -223,6 +224,7 @@ function migrate(g){
   g.can=clamp(typeof g.can==='number'?g.can:CAN_MAX,0,CAN_MAX);
   g.deliv=(Array.isArray(g.deliv)?g.deliv:[]).filter(d=>d&&(d.k==='m'?MM[d.id]:SM[d.id])&&d.n>0);
   if(!g.owned[g.veh])g.veh='foot';
+  if(!g.story||typeof g.story!=='object')g.story={q:'variete',cut:0,dead:1,paid:0,f:{}};g.story.f=g.story.f||{};
 }
 let G=null;
 try{G=JSON.parse(localStorage.getItem(KEY))}catch(e){}
@@ -959,7 +961,7 @@ function drawVeh(e,now,big){
   ctx.drawImage(s.cv,-s.cw/2/PPM,-s.ch/2/PPM,s.cw/PPM,s.ch/PPM);
   const k=e.spr.k,hl=s.L/2;
   if(e.brk){ctx.fillStyle='#ff4a3a';rr(ctx,-hl-.02,-s.W*.42,.2,.5,.05);ctx.fill();rr(ctx,-hl-.02,s.W*.42-.5,.2,.5,.05);ctx.fill()}
-  if(e.spr.cop){
+  if(e.spr.cop&&!e.calm){
     const fl=Math.floor(now/150)%2;
     ctx.fillStyle=fl?'#ff2a2a':'#4a0a0a';rr(ctx,-.3,-.9,.6,.8,.12);ctx.fill();
     ctx.fillStyle=fl?'#0a1a4a':'#3a6aff';rr(ctx,-.3,.1,.6,.8,.12);ctx.fill();
@@ -1134,6 +1136,7 @@ function drawHUDLayer(now){
     if(WP)edgeMark(WP.x,WP.z,'#7fd1ff',Math.round(Math.hypot(WP.x-P.x,WP.z-P.z))+' m · '+WP.label);
     if(M)edgeMark(M.dest.x,M.dest.z,'#ff7a1a',Math.round(Math.hypot(M.dest.x-P.x,M.dest.z-P.z))+' m');
     if(meetCar)edgeMark(meetCar.x,meetCar.z,BOSSES[meetCar.boss].col,BOSSES[meetCar.boss].name);
+    if(QT&&!M&&!WP)edgeMark(QT.x,QT.z,'#ffd24a',QT.label);
     if(trk&&!M)edgeMark(trk.x,trk.z,'#ffa63d',Math.round(Math.hypot(trk.x-P.x,trk.z-P.z))+' m');
   }
 }
@@ -1296,10 +1299,11 @@ function render(now){
   if(DV)drawVeh(DV.e,now);
   if(CAR){const V=VM[CAR.id];if(V.kind==='bike')drawBike(CAR.x,CAR.z,CAR.th,V.color,0);else drawVeh({x:CAR.x,z:CAR.z,th:CAR.th,spr:{k:V.kind,c:V.color},brk:false,park:true},now)}
   if(started){
-    if(!HIDE&&!LABIN&&(P.def.kind==='foot'||P.def.kind==='scooter'||P.def.kind==='bike')){const pu=.5+.5*Math.sin(now/300);ring(P.x,P.z,2.6+pu*.5,'#ffffff',.2,.35)}
-    drawPlayer(now);
+    if(!HIDE&&!LABIN&&!CINE&&(P.def.kind==='foot'||P.def.kind==='scooter'||P.def.kind==='bike')){const pu=.5+.5*Math.sin(now/300);ring(P.x,P.z,2.6+pu*.5,'#ffffff',.2,.35)}
+    if(!CINE)drawPlayer(now);
   }
   drawOthers(now);
+  drawStory(now);
   // émetteurs et fumées
   drawParticles();
   drawPigeons(now/1000);
@@ -1310,6 +1314,7 @@ function render(now){
   vb.sort((p,q)=>p.h-q.h);
   for(const b of vb)drawBld(b);
   if(!LABIN)drawLabRoof(now);
+  drawStoryTop(now);
   drawCityTop(now/1000);
   // points de repère
   for(const lm of LM){
@@ -1591,7 +1596,7 @@ function findTarget(){
   if(P.def.kind!=='foot'){if(Math.abs(P.v)<3.5)tgt={k:'exit',label:'Descendre'};return}
   if(inLab()){tgt=labTarget();return}
   let bd=1e9;
-  const chased=cops.length>0||threat,nc=cops.reduce((m,c)=>Math.min(m,Math.hypot(c.x-P.x,c.z-P.z)),1e9);
+  const chased=cops.some(c=>!c.calm)||threat,nc=cops.reduce((m,c)=>Math.min(m,Math.hypot(c.x-P.x,c.z-P.z)),1e9);
   for(const s of SHOPS){const d=Math.hypot(P.x-s.x,P.z-s.z)-1;if(d<4&&d<bd){bd=d;
     tgt=chased?(nc>35?{k:'hide',s,label:'Se cacher : '+s.name}:{k:'info',label:'Flics trop près pour se cacher'}):{k:'shop',s,label:'Entrer : '+s.name}}}
   if(LAB){const d=Math.hypot(P.x-LAB.sh.door.x,P.z-LAB.sh.door.z);if(d<3.2&&d<bd){bd=d;tgt={k:'enterlab',label:'Entrer dans le labo'}}}
@@ -3000,6 +3005,7 @@ function hud(dt){
   if(HIDE||inside){}
   else if(M){tg=M.dest;lab='Go fast';col='#ff7a1a'}
   else if(WP){tg=WP;lab=WP.label;col='#7fd1ff'}
+  else if((QT=questTarget())){tg=QT;lab=QT.label;col='#ffd24a'}
   else if(trk){const o=orders.find(q=>q.id===trk.id);tg=trk;lab=o?o.name:'Client'}
   if(tg){const dx=tg.x-P.x,dz=tg.z-P.z,dd=Math.hypot(dx,dz);
     if(dd>14){vis(a,1);a.style.color=col;$('arrow').style.transform=`rotate(${Math.atan2(dx,-dz)}rad)`;
@@ -3063,7 +3069,7 @@ setInterval(()=>{if(G.code&&started&&!ended&&Date.now()-cloudLast>60000)cloudPus
 
 /* ---------- menu de gestion : uniquement à l'ordinateur du labo (et quelques onglets dans les boutiques) ---------- */
 let menuOpen=false,tab='labo',confirmReset=false,shopOpen=false,menuOnly=false,menuAt=null;
-const paused=()=>!started||menuOpen||raidOpen||talking||ended||shopOpen||mapBig||bagOpen;
+const paused=()=>!started||!!CINE||menuOpen||raidOpen||talking||ended||shopOpen||mapBig||bagOpen;
 const machOwned=id=>(G.lab.store[id]||0)+G.lab.items.filter(it=>it.id===id).length;
 function machCell(it){
   const m=MM[it.id];
@@ -3222,7 +3228,7 @@ let started=false;
 $('goBtn').onclick=()=>{
   $('goRow').hidden=true;$('goals').hidden=true;$('pickBox').hidden=false;
   $('dgrid').innerHTML=DKEYS.map(k=>{const d=DIS[k],b=BOSSES[BIDS.find(x=>BOSSES[x].sector===k)],pk=PERKS[k];
-    return `<button class="dcard" data-home="${k}" style="--c:${d.col}"><h3>${d.name}</h3><span class="war">Tu prends la place de ${b.name}.</span><span class="pro">+ ${pk.pro}</span><span class="con">− ${pk.con}</span></button>`}).join('');
+    return `<button class="dcard" data-home="${k}" style="--c:${d.col}"><h3>${d.name}</h3><span class="war">Ton quartier. ${b.name} a raccroché : la place est libre.</span><span class="pro">+ ${pk.pro}</span><span class="con">− ${pk.con}</span></button>`}).join('');
 };
 $('dgrid').onclick=e=>{
   const c=e.target.closest('[data-home]');if(!c)return;
@@ -3232,17 +3238,18 @@ $('startLoad').onclick=async()=>{const m=$('startMsg');m.textContent='…';m.tex
 function beginGame(fresh){
   applyLook();
   $('start').hidden=true;$('hud').hidden=false;started=true;
-  placeLandmarks();spawnHome();
+  placeLandmarks();spawnHome();storySetup();
   ended=false;HIDE=null;meetCar=null;meetT=110;setupGangs();syncCouriers();
   couriers.forEach(c=>{const p=randRoadPoint(homeSpawn().x,homeSpawn().z,10,60);c.x=p.x;c.z=p.z});
   orders.slice().forEach(removeOrder);
-  if(fresh){setTimeout(()=>toast('Ton labo a déjà deux pots, un séchoir installé et 5 graines. Plante, puis arrose : l’arrosoir se remplit au robinet, à droite de l’entrée.'),600);setTimeout(()=>toast('Le reste s’achète à la jardinerie (matériel) et à la graineterie (graines), ou se commande à l’ordinateur du labo, livré en camionnette.'),7000)}
-  else setTimeout(()=>toast('De retour au labo.'),400);
+  if(fresh)storyBegin();
+  else{setTimeout(()=>toast('De retour au labo.'),400);storyBegin()}
+  if(0){setTimeout(()=>toast('Ton labo a déjà deux pots, un séchoir installé et 5 graines. Plante, puis arrose : l’arrosoir se remplit au robinet, à droite de l’entrée.'),600);setTimeout(()=>toast('Le reste s’achète à la jardinerie (matériel) et à la graineterie (graines), ou se commande à l’ordinateur du labo, livré en camionnette.'),7000)}
 }
 function resetGame(){
   endFast();cops=[];couriers=[];
   gangs=[];orders.slice().forEach(removeOrder);
-  meetCar=null;HIDE=null;DV=null;parkCar(null);
+  meetCar=null;HIDE=null;DV=null;parkCar(null);CINE=null;$('cine').hidden=true;
   G=newG();applyLook();save();started=false;ended=false;talking=false;raidOpen=false;closeMenu();closeShop();
   $('end').hidden=true;$('talk').hidden=true;$('raid').hidden=true;$('hud').hidden=true;$('start').hidden=false;
   $('goRow').hidden=false;$('goals').hidden=false;$('pickBox').hidden=true;
@@ -3452,6 +3459,429 @@ $('partyNew').onclick=()=>startParty(true,null,$('partyMsg'));
 $('partyJoin').onclick=()=>startParty(false,$('partyIn').value,$('partyMsg'));
 mpInit();
 
+/* ---------- histoire : cinématique d'intro, El Refe, quêtes, téléphone, patrouilles ---------- */
+/* G.story = {q: quête en cours, cut: 1 si El Refe prend 30 %, dead: 1 s'il est mort, paid: total versé, f: drapeaux} */
+var CINE=null,QT=null;
+const REFE_CUT=.3;
+const REFE_LOOK={skin:0x8d5b3e,shirt:0xf2f2f2,pants:0x1d1d20,shoe:0xf1f1f1,hair:0x111111,cap:0x111111,bag:0,long:0};
+const SIDE_LOOK={skin:0xc99068,shirt:0x2f5f8c,pants:0x2b3550,shoe:0x222222,hair:0x16110e,cap:0xd04a2a,bag:0,long:0};
+const DAD_LOOK={skin:0xe3b895,shirt:0x6b6b70,pants:0x3a3a40,shoe:0x3a2a1c,hair:0x9a948c,cap:0,bag:0,long:0};
+const QORDER=['intro','refe','vente','labo','plante','arrose','recolte','seche','sac','benef','choix','c_labo','c_dealer','c_veh','tel','tuer','variete','jardinier','gofast','secteur','final'];
+const STO=()=>{if(!G.story)G.story={q:'variete',cut:0,dead:1,paid:0,f:{}};if(!G.story.f)G.story.f={};return G.story};
+const qIdx=q=>QORDER.indexOf(q);
+const storyAt=q=>qIdx(STO().q)>=qIdx(q);
+const refeHere=()=>!!(SPOT&&!STO().dead&&!(RF&&RF.ko&&RF.gone));
+const labOpen=()=>storyAt('labo');
+
+/* ---------- lieux : la maison familiale et le hall d'El Refe (mêmes pour tous les joueurs) ---------- */
+let SPOT=null,RF=null;
+function facadeSpots(home){
+  const out=[];
+  for(const B of BL)for(const b of B.bld){
+    if(!b.shop||b.store||b.bank)continue;
+    const d=b.shop;if(home&&districtAt(d.x,d.z).key!==home)continue;
+    const key=Math.floor((d.x+HALF)/PITCH)+','+Math.floor((d.z+HALF)/PITCH);
+    if((BLK[key]||[]).some(r=>d.x>r.x0-1.2&&d.x<r.x1+1.2&&d.z>r.z0-1.2&&d.z<r.z1+1.2))continue;
+    if(SHOPS.some(s=>Math.hypot(s.x-d.x,s.z-d.z)<28))continue;
+    const cx=(b.x0+b.x1)/2,cz=(b.z0+b.z1)/2,ax=Math.abs(d.x-cx)>Math.abs(d.z-cz)?'x':'z',sg=ax==='x'?Math.sign(d.x-cx):Math.sign(d.z-cz);
+    const nx=ax==='x'?sg:0,nz=ax==='z'?sg:0,fx=ax==='x'?(sg>0?b.x1:b.x0):d.x,fz=ax==='z'?(sg>0?b.z1:b.z0):d.z;
+    let ok=true;for(const a of [2,3.5,5,6.5])for(const t of [-2.5,0,2.5])if(!pointFree(fx+nx*a-nz*t,fz+nz*a+nx*t,.5))ok=false;
+    if(!ok)continue;
+    out.push({x:d.x,z:d.z,fx,fz,nx,nz,tx:-nz,tz:nx});
+  }
+  return out;
+}
+const spotAt=(s,a,t)=>[s.fx+s.nx*a+s.tx*t,s.fz+s.nz*a+s.tz*t];
+function storySetup(){
+  STO();
+  if(!LAB)return;
+  const door=LAB.sh.door,dl=s=>Math.hypot(s.x-door.x,s.z-door.z);
+  let list=facadeSpots(G.home);if(list.length<2)list=facadeSpots(null);
+  const home=list.filter(s=>dl(s)>80&&dl(s)<320).sort((a,b)=>Math.abs(dl(a)-180)-Math.abs(dl(b)-180))[0]||list[0];
+  const refe=list.filter(s=>s!==home&&Math.hypot(s.x-home.x,s.z-home.z)>90&&dl(s)>50).sort((a,b)=>Math.abs(dl(a)-120)-Math.abs(dl(b)-120))[0]||list.find(s=>s!==home);
+  SPOT={home,refe};
+  const [rx,rz]=spotAt(refe,2.4,0);
+  RF={x:rx,z:rz,hx:rx,hz:rz,th:Math.atan2(refe.nx,refe.nz),hp:100,cd:0,fight:false,ko:false,ph:0,sp:0,punch:0,talkT:0};
+  if(STO().dead){RF.ko=true;RF.gone=true}
+}
+
+/* ---------- les quêtes ---------- */
+const nearestShop=type=>{let b=null,bd=1e9;for(const s of SHOPS)if(s.type===type){const d=Math.hypot(s.x-P.x,s.z-P.z);if(d<bd){bd=d;b=s}}return b};
+const shopTgt=type=>{const s=nearestShop(type);return s?{x:s.x,z:s.z,label:s.name}:null};
+const labTgt=()=>inLab()||!LAB?null:{x:LAB.sh.door.x,z:LAB.sh.door.z,label:'Ton labo'};
+const refeTgt=()=>refeHere()?{x:RF.x,z:RF.z,label:'El Refe'}:null;
+function clientTgt(){
+  if(bagTot()===0)return LAB?{x:LAB.sh.door.x,z:LAB.sh.door.z,label:'Labo : remplis ton sac'}:null;
+  let b=null,bd=1e9;for(const o of orders)if(canDeliver(o)){const d=Math.hypot(o.x-P.x,o.z-P.z);if(d<bd){bd=d;b=o}}
+  return b?{x:b.x,z:b.z,label:b.name}:null;
+}
+const plants=()=>G.lab.items.filter(it=>it.pl);
+const Q={
+  intro:{t:'À la rue',d:'Regarde la scène.'},
+  refe:{t:'Va voir El Refe',d:'Il tient le hall d’un immeuble de ton secteur. Suis la flèche jaune et parle-lui (bouton d’action ou E).',who:'Toi',say:'« El Refe connaît tout le monde. Lui, il saura quoi faire. »',tg:refeTgt,done:()=>STO().f.deal},
+  vente:{t:'Vends à ton premier client',d:'El Refe t’a donné 6 unités. Approche-toi du client (cercle jaune) : la vente se fait toute seule.',who:'El Refe',say:'« Tu t’approches, tu donnes, tu encaisses. Pas de blabla. Et 30 % pour moi. »',
+    tg:()=>{const o=orders.find(q=>q.tuto);return o?{x:o.x,z:o.z,label:o.name}:clientTgt()},done:()=>STO().f.sale1},
+  labo:{t:'Entre dans ton labo',d:'El Refe t’a laissé les clés d’un local. Suis la flèche et entre.',who:'El Refe',say:'« Le local est à toi. Tu y fais pousser, tu y fais sécher, et tu me ramènes ma part. »',tg:labTgt,done:()=>inLab()},
+  plante:{t:'Plante une graine',d:'Approche-toi d’un pot et appuie sur le bouton d’action : « Planter ».',who:'El Refe',say:'« Une graine, un pot. Commence petit. »',tg:labTgt,done:()=>plants().length>0},
+  arrose:{t:'Arrose ta plante',d:'Remplis l’arrosoir au robinet (à droite de l’entrée), puis arrose le pot.',who:'El Refe',say:'« Sans eau, elle fane. Garde un œil sur la jauge bleue. »',tg:labTgt,done:()=>STO().f.water},
+  recolte:{t:'Récolte quand c’est mûr',d:'La plante pousse toute seule (20 s pour l’herbe du jardin). Taille-la à mi-pousse pour +20 %, puis récolte à 100 %.',who:'El Refe',say:'« La patience, c’est ce qui sépare les pros des guignols. »',tg:labTgt,done:()=>STO().f.harvest||rawTot()>0||tot()>0},
+  seche:{t:'Fais sécher la récolte',d:'Approche-toi du séchoir et charge la récolte. Le produit sec part dans la réserve.',who:'El Refe',say:'« Personne n’achète de l’herbe mouillée. Séchoir. »',tg:labTgt,done:()=>STO().f.dry||tot()>0},
+  sac:{t:'Remplis ton sac',d:'Attends la fin du séchage, puis va aux étagères de la réserve (à droite de l’entrée) : « Remplir mon sac ».',who:'El Refe',say:'« Ce qui est dans la réserve ne rapporte rien. Ce qui est dans ton sac, si. »',tg:labTgt,done:()=>STO().f.take},
+  benef:{t:'Fais 100 € de bénéfice',d:'Va voir les clients (cercles jaunes sur la carte). El Refe prend 30 % au passage.',who:'El Refe',say:'« Les clients sont partout. La nuit, ils paient mieux. »',tg:clientTgt,
+    prog:()=>`${fmt(Math.max(0,G.earned-(STO().f.e0||0)))} / 100 €`,done:()=>G.earned-(STO().f.e0||0)>=100},
+  choix:{t:'Choisis par quoi commencer',d:'Touche cet objectif pour choisir : agrandir le labo, recruter un dealer ou acheter un véhicule.',who:'El Refe',say:'« Tu commences à gagner ta vie. Maintenant, réfléchis à ce qui te rapportera le plus. »',done:()=>!!STO().f.choice},
+  c_labo:{t:'Agrandis ton labo',d:'À l’ordinateur du labo (à gauche de l’entrée), onglet Améliorations : « Agrandir le labo ».',who:'El Refe',say:'« Plus de pots, plus de récolte. Logique. »',tg:labTgt,prog:()=>fmt(G.cash)+' / '+fmt(upCost(UPS[0])),done:()=>lv('labo')>=1},
+  c_dealer:{t:'Recrute un dealer de rue',d:'Au bar ou à l’ordinateur du labo (onglet Équipe). Il vend ta réserve même quand tu n’es pas là.',who:'El Refe',say:'« Un bon dealer, ça bosse pendant que tu dors. »',tg:()=>shopTgt('bar'),prog:()=>fmt(G.cash)+' / '+fmt(tmCost(TEAM[2])),done:()=>lv('dealer')>=1},
+  c_veh:{t:'Achète un véhicule',d:'Un vélo ou un scooter suffit pour commencer : à la concession, ou à l’ordinateur (onglet Garage).',who:'El Refe',say:'« À pied, tu ne fais pas trois clients dans la soirée. »',tg:()=>shopTgt('concession'),done:()=>Object.keys(G.owned).some(k=>k!=='foot'&&G.owned[k])},
+  tel:{t:'Achète un téléphone',d:'Dans une supérette. Avec un téléphone, les gérants t’envoient un message au lieu de venir te chercher.',who:'El Refe',say:'« Un pro, ça répond au téléphone. Ça évite les visites surprises. »',tg:()=>shopTgt('superette'),done:()=>inv('telephone')>0},
+  tuer:{t:'Débarrasse-toi d’El Refe',d:'Il prend 30 % de tout ce que tu gagnes, à vie. Il n’y a qu’une façon d’effacer la dette : va le voir et règle ça (👊 ou F pour frapper).',who:'Toi',say:'« Chaque vente, il se sert. Tant qu’il sera là, je travaillerai pour lui. »',tg:refeTgt,
+    prog:()=>`Déjà versé à El Refe : ${fmt(STO().paid||0)}`,done:()=>STO().dead},
+  variete:{t:'Débloque une nouvelle variété',d:'À la graineterie ou à l’ordinateur du labo (onglet Commander). Les variétés chères rapportent plus.',tg:()=>shopTgt('graineterie'),done:()=>STRAINS.filter(s=>G.unlocked[s.id]).length>=3},
+  jardinier:{t:'Recrute un jardinier',d:'Au bar ou à l’ordinateur (onglet Équipe) : il arrose, récolte et replante à ta place.',tg:()=>shopTgt('bar'),done:()=>lv('jardinier')>=1},
+  gofast:{t:'Réussis un go fast',d:'Achète une voiture rapide (Classe G, RS6, M5…), remplis ton sac d’au moins 10 unités et lance un go fast (G).',done:()=>STO().f.gofast},
+  secteur:{t:'Prends un deuxième secteur',d:'Quand un gérant voudra vendre son secteur, achète-le. Garde de bonnes relations avec eux.',done:()=>mySectors()>=2},
+  final:{t:'Deviens le patron des Lilas',d:'Atteins 10 000 000 €.',prog:()=>fmt(G.cash+(G.bank||0))+' / 10 000 000 €',done:()=>false},
+};
+function questTarget(){const q=Q[STO().q];if(!q||!q.tg||CINE)return null;const t=q.tg();return t&&Math.hypot(t.x-P.x,t.z-P.z)>6?t:null}
+function nextQuest(){
+  const s=STO(),cur=s.q;
+  let n;
+  if(cur==='choix')n='c_'+s.f.choice;
+  else if(cur.startsWith('c_'))n='tel';
+  else n=QORDER[qIdx(cur)+1]||'final';
+  if(n==='c_undefined')n='tel';
+  s.q=n;questStart(n);renderQuest(true);save();
+}
+function questStart(q){
+  const s=STO();
+  if(q==='benef')s.f.e0=G.earned;
+  if(q==='choix')s.f.asked=0;
+  if(q==='tuer'&&!s.f.tuerIntro){s.f.tuerIntro=1;setTimeout(()=>{if(!paused())openDialog('Toi','#f3e6d6',{text:'Chaque vente, El Refe prend 30 %. Déjà '+fmt(s.paid||0)+' dans sa poche. Tant qu’il sera là, je travaillerai pour lui.',choices:[{label:'Aller régler ça',desc:'Suis la flèche jusqu’à son hall.',close:1}]},()=>{})},900)}
+}
+let qChkT=0,qFlash=0;
+function questCheck(dt){
+  qChkT-=dt;if(qChkT>0)return;qChkT=.25;
+  const s=STO(),q=Q[s.q];if(!q||!q.done||s.q==='intro')return;
+  if(q.done()){
+    toast('Objectif atteint : '+q.t,'good');Sfx.cash();qFlash=1.2;
+    if(s.q==='tel')setTimeout(()=>toast('📱 Les gérants t’enverront maintenant un message au lieu de venir te voir.','good'),900);
+    nextQuest();
+  }
+}
+let qOpen=!MOBILE,qLast='';
+function renderQuest(force){
+  const el=$('quest');if(!el)return;
+  const s=STO(),q=Q[s.q],show=!!q&&started&&!CINE&&s.q!=='intro';
+  vis(el,show);if(!show)return;
+  const pr=q.prog?q.prog():'',h=`${s.q}|${qOpen}|${pr}`;
+  if(!force&&h===qLast)return;qLast=h;
+  $('qT').textContent=q.t;$('qD').textContent=q.d;vis($('qD'),qOpen);
+  const sy=$('qS');vis(sy,qOpen&&!!q.say);if(q.say)sy.textContent=(q.who||'')+' : '+q.say;
+  vis($('qP'),!!pr);$('qP').textContent=pr;
+  el.classList.toggle('open',qOpen);
+}
+function questClick(){
+  if(STO().q==='choix'){askChoice();return}
+  qOpen=!qOpen;renderQuest(true);
+}
+
+/* ---------- El Refe : le marché, les conseils, puis le combat ---------- */
+function acceptDeal(){
+  const s=STO();s.cut=1;s.f.deal=1;
+  bagAddProd('jardin',6);
+  const p=randRoadPoint(RF.x,RF.z,35,75),o=genOrder(p.x,p.z,1,'Un client d’El Refe');
+  o.s='jardin';o.qty=4;o.price=8;o.ttl=1e9;o.tuto=1;o.rival=false;o.d=districtAt(o.x,o.z).key;
+  save();
+  return '« Bien. Tiens, 6 unités pour commencer. Un client attend au coin de la rue : va le voir. Et n’oublie jamais : 30 % pour moi. À vie. »';
+}
+function talkRefe(){
+  const s=STO(),q=s.q;
+  if(q==='refe'){
+    const deal={label:'Marché conclu',desc:'El Refe prendra 30 % de tout ce que tu gagnes.',fn:acceptDeal};
+    openDialog('El Refe','#e0b020',{text:'« Alors c’est toi, le gamin qu’on a mis dehors ? Écoute bien. Je t’apprends tout : faire pousser, vendre, éviter les flics. Je te file même un local. En échange, je prends 30 % de tout ce que tu gagnes. À vie. »',choices:[
+      deal,
+      {label:'30 % à vie ? C’est du vol.',desc:'Tenter de négocier.',fn:()=>({text:'« Du vol ? Le vol, c’est de dormir sur un banc avec 150 € en poche. C’est ça ou la rue, petit. »',choices:[deal]})}]},()=>{});
+    return}
+  if(q==='tuer'){
+    openDialog('El Refe','#e0b020',{text:`« Tiens, mon meilleur élève. Tu m’as déjà rapporté ${fmt(s.paid||0)}. Tu viens payer ma part ? »`,choices:[
+      {label:'Régler ça une bonne fois pour toutes',desc:'Il ne se laissera pas faire. Frappe avec 👊 ou F.',fn:()=>{startRefeFight();return '« Toi ? Me régler ? Viens, petit. Viens. »'}},
+      {label:'Rien. Je passais.',desc:'Il continue de prendre 30 %.',close:1}]},()=>{});
+    return}
+  const lines=storyAt('benef')?['« 30 %, petit. À chaque vente. C’est le prix de ce que je t’ai appris. »','« Les flics tournent plus le jour. La nuit, c’est à nous. »','« Garde ton sac léger quand une patrouille passe. »']
+    :storyAt('labo')?['« Ton labo t’attend. Plante, arrose, récolte, fais sécher. »','« Le séchoir, c’est la clé. Personne n’achète de l’herbe mouillée. »']
+    :['« Le client t’attend, suis la flèche. »'];
+  openDialog('El Refe','#e0b020',{text:pick(lines),choices:[{label:'OK',close:1}]},()=>{});
+}
+function startRefeFight(){RF.fight=true;RF.hp=Math.max(RF.hp,60);RF.cd=1.2;threat=true;toast('Le combat contre El Refe commence. Frappe-le (👊 ou F) et reste mobile.','bad')}
+function refePunched(){
+  const s=STO();
+  if(!refeHere()||RF.ko)return;
+  if(s.q!=='tuer'){floater(RF.x,RF.z-2,'« Encore une fois et t’es mort. »','#ffd24a',false);RF.talkT=2;return}
+  if(!RF.fight)startRefeFight();
+  const dmg=Math.round(R(13,19));RF.hp-=dmg;RF.stag=.25;const fx=RF.x-P.x,fz=RF.z-P.z,l=Math.hypot(fx,fz)||1;RF.x+=fx/l*1.1;RF.z+=fz/l*1.1;
+  CAM.shake=Math.max(CAM.shake,3);Sfx.crash(.3);floater(RF.x,RF.z-2.5,'-'+dmg,'#ffd24a',false);
+  if(RF.hp<=0)refeDown();
+}
+function refeDown(){
+  const s=STO();RF.ko=true;RF.fight=false;s.dead=1;s.cut=0;
+  CAM.shake=6;Sfx.crash(.7);floater(RF.x,RF.z-2.5,'El Refe','#ff5a40',true);
+  G.heat=Math.max(G.heat,65);
+  toast('El Refe est mort. Plus personne ne prend 30 % sur tes ventes.','good');
+  setTimeout(()=>toast('Les coups de feu ont alerté la police : file d’ici.','bad'),2500);
+  save();
+}
+function updRefe(dt){
+  if(!RF||!refeHere())return;
+  RF.ph+=dt*2;RF.talkT=Math.max(0,RF.talkT-dt);RF.punch=Math.max(0,RF.punch-dt*2.6);RF.stag=Math.max(0,(RF.stag||0)-dt);
+  if(RF.ko)return;
+  const d=Math.hypot(P.x-RF.x,P.z-RF.z);
+  if(!RF.fight){
+    // reste devant son hall, regarde le joueur quand il approche
+    const hx=RF.hx-RF.x,hz=RF.hz-RF.z,hd=Math.hypot(hx,hz);
+    if(hd>.3){RF.x+=hx/hd*Math.min(hd,3*dt);RF.z+=hz/hd*Math.min(hd,3*dt);RF.th=Math.atan2(hx,hz);RF.sp=3}else RF.sp=0;
+    if(d<14&&hd<.3)RF.th=Math.atan2(P.x-RF.x,P.z-RF.z);
+    if(RF.hp<100)RF.hp=Math.min(100,RF.hp+dt*4);
+    return}
+  if(paused())return;
+  threat=true;
+  if(d>45||inLab()||P.def.kind!=='foot'&&d>20){RF.fight=false;toast('El Refe rentre dans son hall. « La prochaine fois, je t’attends. »');return}
+  RF.th=Math.atan2(P.x-RF.x,P.z-RF.z);
+  if(d>2.3&&!(RF.stag>0)){const s=4.2;RF.x+=Math.sin(RF.th)*s*dt;RF.z+=Math.cos(RF.th)*s*dt;RF.sp=s;collide(RF,.45)}else RF.sp=0;
+  RF.cd-=dt;
+  if(d<2.9&&RF.cd<=0){
+    RF.cd=R(.9,1.3);RF.punch=1;
+    const dmg=P.def.kind==='foot'?R(8,12):4;G.hp-=dmg;CAM.shake=Math.max(CAM.shake,4);Sfx.crash(.35);floater(P.x,P.z-2.5,'-'+Math.round(dmg)+' vie','#ff5a40',false);
+    if(G.hp<=10){
+      G.hp=35;RF.fight=false;RF.hp=100;const loss=Math.floor(G.cash*.1);G.cash-=loss;
+      openDialog('El Refe','#e0b020',{text:`Tu te réveilles sur le trottoir. El Refe a pris ${fmt(loss)} dans tes poches. « Recommence, et je ne serai pas aussi gentil. »`,choices:[{label:'Se relever',desc:'Reviens plus fort : achète un meilleur sac, reprends des forces, et retente ta chance.',close:1}]},()=>{});
+    }
+  }
+}
+
+/* ---------- la cinématique d'intro ---------- */
+const eio=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+const seg=(k,a,b)=>clamp((k-a)/(b-a),0,1);
+function cinePos(a,t){return spotAt(SPOT.home,a,t)}
+function faceTo(ax,az,bx,bz){return Math.atan2(bx-ax,bz-az)}
+const CBEATS=[
+  {d:2.6,nar:'Les Lilas. Un jour de trop.',f(c,k){c.door=0;c.dad.show=0;c.p.show=0;c.bag.show=0;c.cam=[...cinePos(4.5-1.5*k,0),.85+.15*k]}},
+  {d:3.6,who:'Le père',txt:'« Trois mois que tu traînes. Pas d’école, pas de boulot, rien ! »',f(c,k){
+    c.door=1;c.dad.show=1;c.p.show=1;c.bag.show=0;
+    const w=eio(seg(k,0,.45));const [px,pz]=cinePos(-.4+3.4*w,.5),[dx,dz]=cinePos(-.6+1.3*w,-.5);
+    c.p.x=px;c.p.z=pz;c.p.sp=k<.45?2:0;c.p.mode=undefined;c.dad.x=dx;c.dad.z=dz;c.dad.sp=k<.45?1.5:0;c.dad.mode=k>.45?'chat':undefined;
+    c.p.th=faceTo(px,pz,dx,dz);c.dad.th=faceTo(dx,dz,px,pz);c.dad.punch=0;c.cam=[...cinePos(2.4,0),1]}},
+  {d:2.8,who:'Toi',txt:'« Papa, attends… Je vais trouver un truc, promis. »',f(c,k){
+    const [px,pz]=cinePos(3,.5),[dx,dz]=cinePos(.7,-.5);c.p.x=px;c.p.z=pz;c.p.sp=0;c.p.mode='chat';c.dad.x=dx;c.dad.z=dz;c.dad.mode=undefined;c.dad.punch=0;
+    c.p.th=faceTo(px,pz,dx,dz);c.dad.th=faceTo(dx,dz,px,pz);c.cam=[...cinePos(2.2,0),1.08]}},
+  {d:2.9,who:'Le père',txt:'« T’as dix-neuf ans. Ici, c’est terminé. Dehors ! »',f(c,k){
+    const sh=seg(k,.42,.7),w=1-Math.pow(1-sh,3);
+    const [dx,dz]=cinePos(.7+1.2*seg(k,.3,.5),-.45),[px,pz]=cinePos(3+2.6*w,.5+.4*w);
+    c.dad.x=dx;c.dad.z=dz;c.dad.punch=k>.35&&k<.62?seg(k,.35,.62):0;c.dad.mode=undefined;
+    c.p.x=px;c.p.z=pz;c.p.mode=k>.68?'ko':undefined;c.p.sp=0;c.p.th=faceTo(px,pz,dx,dz);c.dad.th=faceTo(dx,dz,px,pz);
+    if(k>.45&&!c.shoved){c.shoved=1;CAM.shake=5;Sfx.crash(.4)}
+    c.cam=[...cinePos(3.2,.3),1]}},
+  {d:2.4,who:'Le père',txt:'« Et prends tes affaires ! »',f(c,k){
+    const t=seg(k,.2,.62),[ax,az]=cinePos(1.3,-.4),[bx,bz]=cinePos(5.8,2.6);
+    c.bag.show=k>.18?1:0;c.bag.x=ax+(bx-ax)*t;c.bag.z=az+(bz-az)*t;c.bag.h=Math.sin(t*Math.PI)*2.2;c.bag.r=t*7;
+    c.dad.punch=k>.1&&k<.4?seg(k,.1,.4):0;c.p.mode='ko';
+    if(t>=1&&!c.landed){c.landed=1;Sfx.crash(.15)}}},
+  {d:1.8,nar:'La porte claque.',f(c,k){
+    c.dad.show=k<.15?1:0;c.door=k<.2?1:0;c.p.mode='ko';
+    if(k>.2&&!c.slam){c.slam=1;CAM.shake=4;Sfx.crash(.6)}}},
+  {d:3.2,who:'Toi',txt:'« … 150 € en poche. Plus de toit. »',f(c,k){
+    c.door=0;c.dad.show=0;c.p.mode=k<.3?'ko':undefined;c.p.sp=0;
+    const [px,pz]=cinePos(5.4,.9);c.p.x=px;c.p.z=pz;const [fx,fz]=cinePos(0,0);c.p.th=faceTo(px,pz,fx,fz);c.cam=[...cinePos(4.4,.8),1.1]}},
+  {d:3.4,who:'Toi',txt:'« El Refe. Lui, il saura quoi faire. »',f(c,k){
+    const w=eio(seg(k,0,.35)),[ax,az]=cinePos(5.4,.9),[bx,bz]=cinePos(5.8,2.3);
+    c.p.x=ax+(bx-ax)*w;c.p.z=az+(bz-az)*w;c.p.sp=k<.35?2:0;c.p.mode=undefined;c.bag.show=k<.33?1:0;
+    const th=faceTo(c.p.x,c.p.z,RF.x,RF.z);c.p.th=k<.35?faceTo(ax,az,bx,bz):th;
+    c.cam=[c.p.x,c.p.z,1.1-.45*eio(seg(k,.3,1))]}},
+  {d:2.8,title:1,f(c,k){c.cam=[c.p.x,c.p.z,.6]}},
+];
+function startIntro(){
+  if(!SPOT)return;
+  const c={i:0,t:0,door:0,dad:{show:0,x:0,z:0,th:0,ph:0,sp:0},p:{show:0,x:0,z:0,th:0,sp:0},bag:{show:0,x:0,z:0,h:0,r:0},cam:null};
+  CINE=c;setVehicle('foot');HIDE=null;closeMenu();
+  for(const k in keys)keys[k]=0;
+  $('hud').hidden=true;$('cine').hidden=false;cineBeat();
+  CBEATS[0].f(c,0);applyCineCam(1);
+}
+function cineZoom(){return clamp(Math.min(VW,VH)/19,15,46)}
+function applyCineCam(snap){const c=CINE;if(!c||!c.cam)return;const z=cineZoom()*c.cam[2],k=snap?1:.12,tz=c.cam[1]+70/z;CAM.x+=(c.cam[0]-CAM.x)*k;CAM.z+=(tz-CAM.z)*k;CAM.zoom+=(z-CAM.zoom)*k}
+function cineBeat(){
+  const c=CINE,b=CBEATS[c.i];if(!b)return;
+  const sub=$('cineSub');
+  vis($('cineTitle'),!!b.title);vis(sub,!b.title);
+  $('cineWho').textContent=b.who||'';vis($('cineWho'),!!b.who);
+  $('cineTxt').textContent=b.txt||b.nar||'';$('cineTxt').classList.toggle('nar',!!b.nar);
+  sub.classList.remove('in');void sub.offsetWidth;sub.classList.add('in');
+}
+function cineNext(){const c=CINE;if(!c)return;CBEATS[c.i].f(c,1);c.i++;c.t=0;if(c.i>=CBEATS.length){endIntro();return}cineBeat()}
+function updCine(real){
+  const c=CINE;if(!c)return;
+  const dt=Math.min(.05,real);c.t+=dt;const b=CBEATS[c.i];
+  b.f(c,Math.min(1,c.t/b.d));
+  c.p.ph=(c.p.ph||0)+c.p.sp*dt*1.6;c.dad.ph=(c.dad.ph||0)+c.dad.sp*dt*1.6;
+  if(c.t>=b.d)cineNext();
+  if(CINE){applyCineCam(false);CAM.shake=Math.max(0,CAM.shake-dt*14)}
+  updTraffic(dt,CAM.x,CAM.z,traffic);updPeds(dt,CAM.x,CAM.z);
+}
+function endIntro(){
+  const c=CINE;if(!c)return;
+  c.shoved=c.landed=c.slam=1;
+  for(let i=c.i;i<CBEATS.length;i++)CBEATS[i].f(c,1);
+  CINE=null;$('cine').hidden=true;$('hud').hidden=false;
+  const [x,z]=cinePos(5.8,2.3);P.x=x;P.z=z;P.th=faceTo(x,z,RF.x,RF.z);P.vx=P.vz=P.v=0;
+  const s=STO();if(s.q==='intro'){s.q='refe';questStart('refe')}
+  save();renderQuest(true);
+  setTimeout(()=>toast('Suis la flèche jaune jusqu’à El Refe.'),500);
+}
+$('cineSkip').onclick=e=>{e.stopPropagation();endIntro()};
+$('cine').addEventListener('click',e=>{if(e.target.closest('#cineSkip'))return;cineNext()});
+addEventListener('keydown',e=>{if(!CINE)return;if(e.key==='Escape'){endIntro();e.preventDefault()}else if(e.key===' '||e.key==='Enter'){cineNext();e.preventDefault()}},true);
+
+/* ---------- dessin : la porte de la maison, le sac, le père, El Refe et son acolyte ---------- */
+function drawDoor(open){
+  const s=SPOT.home,[ax,az]=spotAt(s,0,-1.4),[bx,bz]=spotAt(s,0,1.4);
+  if(open){
+    const [i1x,i1z]=spotAt(s,-.45,-1.4),[i2x,i2z]=spotAt(s,-.45,1.4);
+    ctx.fillStyle='#ffd08a';poly(ax,az,bx,bz,i2x,i2z,i1x,i1z);
+    const [hx,hz]=spotAt(s,0,1.4),[ex,ez]=spotAt(s,-.2,1.25);ctx.strokeStyle='#5a3a22';ctx.lineWidth=.32;ctx.beginPath();ctx.moveTo(hx,hz);ctx.lineTo(ex+(-s.nx)*2.4,ez+(-s.nz)*2.4);ctx.stroke();
+  }else{ctx.strokeStyle='#5a3a22';ctx.lineWidth=.42;ctx.beginPath();ctx.moveTo(ax,az);ctx.lineTo(bx,bz);ctx.stroke()}
+  ctx.strokeStyle='#2a201a';ctx.lineWidth=.22;const [c1x,c1z]=spotAt(s,.05,-1.6),[c2x,c2z]=spotAt(s,.05,1.6);ctx.beginPath();ctx.moveTo(c1x,c1z);ctx.lineTo(c2x,c2z);ctx.stroke();
+}
+function drawLightSpill(){
+  const s=SPOT.home,[ox,oz]=spotAt(s,0,0),g=ctx.createRadialGradient(ox,oz,.5,ox,oz,7);
+  g.addColorStop(0,'rgba(255,205,130,.55)');g.addColorStop(1,'rgba(255,205,130,0)');
+  const [a1x,a1z]=spotAt(s,0,-1.4),[a2x,a2z]=spotAt(s,0,1.4),[b1x,b1z]=spotAt(s,7,-4.2),[b2x,b2z]=spotAt(s,7,4.2);
+  ctx.fillStyle=g;poly(a1x,a1z,a2x,a2z,b2x,b2z,b1x,b1z);
+}
+function drawStory(now){
+  if(!SPOT)return;
+  const c=CINE;
+  if(c){
+    if(c.door)drawLightSpill();
+    if(c.bag.show){const b=c.bag;ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(b.x,b.z,.7,.45,0,0,6.3);ctx.fill();
+      ctx.save();ctx.translate(b.x,b.z-b.h);ctx.rotate(b.r);ctx.fillStyle='#3c4a2c';rr(ctx,-.6,-.45,1.2,.9,.22);ctx.fill();ctx.fillStyle='#2c3820';ctx.fillRect(-.6,-.08,1.2,.16);ctx.restore()}
+    if(c.dad.show)drawHuman(c.dad.x,c.dad.z,c.dad.th,DAD_LOOK,c.dad.ph||0,c.dad.sp,HS,c.dad.mode,c.dad.punch||0);
+    if(c.p.show)drawHuman(c.p.x,c.p.z,c.p.th,PLAYER_LOOK,c.p.ph||0,c.p.sp,HS,c.p.mode,0);
+  }
+  if(RF&&!RF.gone&&inView(RF.x,RF.z,8)){
+    const r=SPOT.refe;
+    if(!STO().dead){const [cx,cz]=spotAt(r,1.8,2.6);
+      ctx.fillStyle='#d9d4c8';rr(ctx,cx-.55,cz-.55,1.1,1.1,.2);ctx.fill();
+      drawHuman(cx,cz,Math.atan2(r.nx,r.nz),SIDE_LOOK,0,0,HS,'sit')}
+    if(!c&&refeHere()&&!RF.ko&&qIdx(STO().q)>=qIdx('refe')&&(STO().q==='refe'||STO().q==='tuer'))drawBeacon(RF.x,RF.z,5,'#ffd24a',now/1000);
+    drawHuman(RF.x,RF.z,RF.th,REFE_LOOK,RF.ph,RF.sp,HS,RF.ko?'ko':RF.fight||RF.talkT>0||RF.sp>0?undefined:'chat',RF.punch>0?1-RF.punch:0);
+    if(!RF.ko){ctx.font='700 1.25px "Work Sans",sans-serif';ctx.textAlign='center';ctx.lineWidth=.35;ctx.strokeStyle='rgba(15,10,8,.85)';ctx.fillStyle='#ffd24a';
+      ctx.strokeText('El Refe',RF.x,RF.z-2.7);ctx.fillText('El Refe',RF.x,RF.z-2.7);
+      if(RF.fight){const w=3;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(RF.x-w/2,RF.z-2.4,w,.32);ctx.fillStyle='#e0503a';ctx.fillRect(RF.x-w/2,RF.z-2.4,w*clamp(RF.hp/100,0,1),.32)}}
+  }
+}
+function drawStoryTop(){if(SPOT&&inView(SPOT.home.fx,SPOT.home.fz,12))drawDoor(!!(CINE&&CINE.door))}
+
+/* ---------- téléphone : les gérants envoient un message au lieu de venir ---------- */
+const PHONE=[];
+function phoneBtn(){const b=$('bPhone');if(!b)return;vis(b,inv('telephone')>0);$('phN').textContent=PHONE.length||'';b.classList.toggle('ring',PHONE.length>0)}
+function readPhone(){
+  if(!PHONE.length){openDialog('📱 Téléphone','#7fd1ff',{text:'Aucun nouveau message.',choices:[{label:'Fermer',close:1}]},()=>{});return}
+  const m=PHONE.shift(),b=BOSSES[m.id];phoneBtn();
+  if(G.retired[m.id]){readPhone();return}
+  openDialog('📱 '+b.name,b.col,pickScenario(m.id),null);curTalk.boss=1;
+}
+$('bPhone').onclick=()=>{if(started&&!ended&&!paused())readPhone()};
+{const _sm=startMeeting;startMeeting=function(){
+  if(!storyAt('choix')){meetT=60;return}
+  if(inv('telephone')>0){
+    const cand=BIDS.filter(id=>!G.retired[id]);if(!cand.length){meetT=9999;return}
+    const id=pick(cand);if(PHONE.length<3&&!PHONE.some(m=>m.id===id))PHONE.push({id});
+    toast(`📱 Nouveau message de ${BOSSES[id].name}. Touche le téléphone pour lire.`);Sfx.alert();phoneBtn();meetT=R(100,170);return}
+  _sm();
+}}
+
+/* ---------- la police : des patrouilles en permanence, qui te prennent en chasse si tu chauffes ---------- */
+updCops=function(dt){
+  const carrying=bagTot()>0||M,night=TOD.n;
+  const patrol=Math.max(1,Math.round((MOBILE?3:4)*(1-.35*night)))+(G.heat>=40?1:0);
+  const chase=HIDE?0:(carrying||G.heat>=60)?Math.min(6,Math.floor(G.heat/18*(1.15-.5*night))):0;
+  const want=patrol+chase;
+  spawnT-=dt;
+  if(cops.length<want&&spawnT<=0){const near=cops.filter(c=>!c.calm).length<chase,p=randRoadPoint(P.x,P.z,near?170:90,near?280:240),a=mkAI({k:'sedan',c:0xf2f2f4,cop:1},p.x,p.z,R(0,6.28),2.3);a.catch=0;a.calm=true;a.path=[];cops.push(a);spawnT=chase>cops.filter(c=>!c.calm).length?2.5:3.5}
+  const ord=cops.slice().sort((a,b)=>Math.hypot(a.x-P.x,a.z-P.z)-Math.hypot(b.x-P.x,b.z-P.z));
+  ord.forEach((c,i)=>{const w=i<chase;if(c.calm&&w){c.path=[];c.t=0}c.calm=!w});
+  for(const c of cops.slice()){
+    const d=Math.hypot(P.x-c.x,P.z-c.z);
+    if((cops.length>want&&d>160)||d>520){cops=cops.filter(q=>q!==c);continue}
+    if(c.calm||HIDE){
+      c.catch=0;
+      if(!c.path.length){const p=randRoadPoint(P.x,P.z,30,200);c.path=lanePath([c.x,c.z],pathTo(c.x,c.z,p.x,p.z))}
+      followPath(c,dt,HIDE?26:19);continue}
+    c.t-=dt;if(c.t<=0){c.t=.8;c.path=pathTo(c.x,c.z,P.x,P.z)}
+    const vt=Math.min(54+G.heat*.22,78)+(M?8:0);
+    if(d<45)aiMove(c,P.x,P.z,dt,vt);else followPath(c,dt,vt);
+    if(d<6.5&&!inLab())c.catch+=dt*(P.v<8?2:1);else c.catch=Math.max(0,c.catch-dt*2);
+    if(c.catch>1.6){arrest();return}
+  }
+};
+let copSeenT=0;
+const copNear=r=>cops.some(c=>c.calm&&Math.hypot(c.x-P.x,c.z-P.z)<r);
+
+/* ---------- raccords : ventes (30 % pour El Refe), labo, combat ---------- */
+function refeTake(before,where){
+  const s=STO(),gain=G.cash-before;
+  if(!s.cut||s.dead||gain<=0)return;
+  const c=Math.round(gain*REFE_CUT);G.cash-=c;G.earned-=c;s.paid=(s.paid||0)+c;
+  if(where)floater(where.x,where.z-4,'-'+fmt(c)+' El Refe','#ff9a7a',false);
+}
+{const _sale=sale;sale=function(o,cut,who){
+  const b=G.cash,ok=_sale(o,cut,who);
+  if(ok){refeTake(b,o);if(who==='toi'){STO().f.sale1=1;
+    if(storyAt('choix')&&copNear(45)&&copSeenT<=0){copSeenT=20;G.heat=Math.max(G.heat,60);toast('Une patrouille t’a vu vendre ! Elle te prend en chasse.','bad')}}}
+  return ok}}
+{const _eco=economy;economy=function(dt){const b=G.cash;_eco(dt);refeTake(b,null);copSeenT-=dt}}
+{const _um=updMission;updMission=function(dt){const b=G.cash,had=!!M;_um(dt);if(had&&!M&&G.cash>b){STO().f.gofast=1;refeTake(b,P)}}}
+{const _w=lWater;lWater=function(it){const c=G.can;_w(it);if(G.can<c)STO().f.water=1}}
+{const _h=lHarvest;lHarvest=function(it,q){const r=_h(it,q);if(r)STO().f.harvest=1;return r}}
+{const _l=lLoad;lLoad=function(it,q){const r=_l(it,q);if(r)STO().f.dry=1;return r}}
+{const _t=bagTake;bagTake=function(){const b=bagTot();_t();if(bagTot()>b)STO().f.take=1}}
+{const _c=updCombat;updCombat=function(dt){
+  const was=punchHit,on=punchT>0;_c(dt);
+  if(on&&!was&&punchHit&&RF&&refeHere()&&!RF.ko){const fx=Math.sin(P.th),fz=Math.cos(P.th),dx=RF.x-P.x,dz=RF.z-P.z,d=Math.hypot(dx,dz);
+    if(d<3.6&&(dx*fx+dz*fz)/(d||1)>.3)refePunched()}}}
+{const _f=findTarget;findTarget=function(){
+  _f();
+  if(!started||ended||paused()||P.def.kind!=='foot'||inLab())return;
+  if(tgt&&tgt.k==='enterlab'&&!labOpen())tgt={k:'info',label:STO().f.deal?'Fermé à clé : vends d’abord à ton client':'Fermé à clé. Va d’abord voir El Refe.'};
+  if(RF&&refeHere()&&!RF.ko&&!RF.fight){const d=Math.hypot(P.x-RF.x,P.z-RF.z);if(d<4.2&&(!tgt||tgt.k==='ped'||tgt.k==='info'))tgt={k:'refe',label:'Parler à El Refe'}}
+}}
+{const _a=act;act=function(){findTarget();if(tgt&&tgt.k==='refe'){talkRefe();Sfx.click();return}_a()};$('bAct').onclick=act}
+
+/* ---------- démarrage et boucle ---------- */
+function storyBegin(){
+  STO();PHONE.length=0;
+  if(STO().q==='intro'){setTimeout(startIntro,60);return}
+  if(!labOpen()&&SPOT){const [x,z]=cinePos(5.8,2.3);P.x=x;P.z=z;CAM.x=x;CAM.z=z;P.th=faceTo(x,z,RF.x,RF.z)}
+  renderQuest(true);
+}
+function askChoice(){
+  const s=STO();if(s.q!=='choix'||paused())return;s.f.asked=1;
+  const c=(id,label,desc)=>({label,desc,fn:()=>{s.f.choice=id;return id==='labo'?'« Bon choix. Plus de place, plus de pots, plus de récolte. Va à l’ordinateur du labo. »':id==='dealer'?'« Un dealer, ça vend pendant que tu dors. Passe au bar, il y a du monde qui cherche du boulot. »':'« Avec des roues, tu feras trois fois plus de clients. File à la concession. »'}});
+  openDialog('El Refe','#e0b020',{text:'« Tu as fait tes premiers billets. Maintenant, tu choisis : tu investis dans quoi ? »',choices:[
+    c('labo','Agrandir le labo',`Plus de place pour les machines · ${fmt(upCost(UPS[0]))}`),
+    c('dealer','Recruter un dealer de rue',`Il vend ta réserve à ta place · ${fmt(tmCost(TEAM[2]))}`),
+    c('veh','Acheter un véhicule','Vélo dès 80 €, scooter 250 €, Clio 900 €')]},()=>{});
+}
+function updStory(dt){
+  if(!started||ended)return;
+  STO();
+  if(!SPOT)storySetup();
+  updRefe(dt);
+  if(!CINE){questCheck(dt);if(STO().q==='choix'&&!STO().f.asked&&!paused())askChoice()}
+  qFlash=Math.max(0,qFlash-dt);const qe=$('quest');if(qe)qe.classList.toggle('flash',qFlash>0);
+  renderQuest(false);phoneBtn();
+}
+$('quest').onclick=questClick;
+
 
 /* ---------- boucle ---------- */
 /* une étape de simulation (sans dessin) */
@@ -3467,7 +3897,7 @@ function simStep(real,dt){
       updTraffic(dt,P.x,P.z,[P].concat(traffic,cops,gangs,couriers));updPeds(dt,P.x,P.z);if(!HIDE&&!inLab())bumps(dt);
       updPigeons(dt);
       if(!threat)G.hp=Math.min(100,G.hp+1.2*dt);
-      near=cops.reduce((m,c)=>Math.min(m,Math.hypot(c.x-P.x,c.z-P.z)),1e9);
+      near=cops.reduce((m,c)=>c.calm?m:Math.min(m,Math.hypot(c.x-P.x,c.z-P.z)),1e9);
       let dec=.45*(1+.25*lv('vent'))*(1+.3*inv('brouilleur'))*(near>180?1.8:near>90?1:.15);
       if(bagTot()===0&&!M)dec*=2;
       if(P.def.kind==='bike')dec*=1.4;
@@ -3485,8 +3915,8 @@ function frame(now){
   if(!started){
     orbit+=real*.05;CAM.x=Math.sin(orbit)*260;CAM.z=Math.cos(orbit*1.3)*260;CAM.zoom=Math.min(VW,VH)<600?2.6:3.6;
     updTraffic(dt,CAM.x,CAM.z,traffic);updPeds(dt,CAM.x,CAM.z);updFx(real);render(now);return}
-  const near=simStep(real,dt);
-  updFx(real);updCamera(dt);hud(dt);render(now);
+  const near=simStep(real,dt);updStory(dt);
+  updFx(real);if(CINE)updCine(real);else updCamera(dt);hud(dt);render(now);
   Sfx.update({run:!menuOpen&&!ended&&!talking,foot:P.def.kind==='foot'||P.def.kind==='bike',sp:Math.hypot(P.vx,P.vz),vmax:P.def.vmax*(P.def.kind==='bike'?1:mot()),thr:!!keys.up,slip:P.slip,big:P.def.kind==='truck'||P.def.kind==='van',rain:WX.lvl,cop:cops.length?near:9999});
 }
 function honk(){if(HIDE||P.def.kind==='foot')return;Sfx.init();Sfx.horn();scarePeds(16);if(mpReady())MP.g.emit('horn',{}).catch(()=>{})}
@@ -3499,6 +3929,7 @@ const DEBUG=/[?&]debug=1\b/.test(location.search);
 if(DEBUG)window.__serre={get G(){return G},P,LAB:()=>LAB,act,actOpt,labDo,labTarget,startPlace,dropPlace,cancelPlace,get PLACE(){return PLACE},bagTake,bagDrop,bagTot,bagUsed,bagPlaces,openBag,closeBag,doPunch,lootPed,peds:()=>peds,hitPed,CITY,
   lPlant,lHarvest,lLoad,lWater,openMenu,closeMenu,get CAR(){return CAR},enterCar,exitCar,J,keys,CAM,SHOPS,tot,rawTot,seedTot,orders:()=>orders,sale,genOrder,economy,labTick,inLab:()=>inLab(),labWorld,
   get tgt(){findTarget();return tgt},teleport:(x,z,th)=>{P.x=x;P.z=z;if(th!=null)P.th=th;P.vx=P.vz=0;CAM.x=x;CAM.z=z},MP,chooseVehicle,copsN:()=>cops.length,hide:()=>!!HIDE,mission:()=>M&&{units:M.units,value:M.value},
-  step:sec=>{for(let t=0;t<sec;t+=.05){mpUpdate(.05);simStep(.05,.05);updFx(.05);updCamera(.05)}hud(0)}};
+  step:sec=>{for(let t=0;t<sec;t+=.05){mpUpdate(.05);simStep(.05,.05);updStory(.05);updFx(.05);if(CINE)updCine(.05);else updCamera(.05)}hud(0)},
+  story:{get S(){return G.story},get RF(){return RF},get SPOT(){return SPOT},get CINE(){return CINE},endIntro,cineNext,talkRefe,refePunched,readPhone,PHONE,Q,get cops(){return cops},startMeeting,askChoice}};
 if(G.began){beginGame(false)}else{$('start').hidden=false}
 requestAnimationFrame(frame);
