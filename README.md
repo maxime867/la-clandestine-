@@ -71,10 +71,14 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 
 ## Le labo
 
-Le labo commence vide. Le menu de gestion s'ouvre seulement à l'ordinateur, sur le bureau près de l'entrée du labo.
-1. À l'ordinateur, onglet **Boutique** : achète des machines (pots, bacs, tables hydroponiques, arroseurs, séchoirs, en 3 niveaux) et des graines.
-2. Dans le labo, approche-toi d'un emplacement : **installe** une machine, **plante**, **arrose**, **taille** à mi-pousse (+20 % de récolte), **récolte**.
-3. Charge la récolte dans un **séchoir** : c'est le produit séché que tu vends aux clients.
+Au départ, le labo a déjà un bureau avec l'ordinateur, un pot, un séchoir, un robinet et 3 graines.
+1. Approche-toi du pot pour **planter**, puis **arrose** : l'arrosoir (8 arrosages) se remplit au **robinet**, à droite de l'entrée.
+2. **Taille** à mi-pousse (+20 % de récolte), **récolte**, puis charge la récolte dans le **séchoir** : c'est le produit séché que tu vends aux clients.
+3. Pour t'agrandir :
+   - **Jardinerie** : machines (pots, bacs, tables hydroponiques, arroseurs, séchoirs, en 3 niveaux), sur place, sans frais.
+   - **Graineterie** : graines, sur place, sans frais.
+   - **Ordinateur du labo** : commande de tout, livrée par camionnette devant le labo en une minute environ (frais de livraison : 10 %, 10 € minimum).
+   - **Concessionnaires** (Auto Lilas et Garage du Port) : véhicules.
 4. Agrandis le labo (Améliorations) et embauche un jardinier (Équipe) pour automatiser.
 
 ## Commandes du jeu

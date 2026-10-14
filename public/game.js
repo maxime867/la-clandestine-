@@ -134,11 +134,11 @@ const SHOPTYPES={
     greet:['« Bonjour ! Besoin de quelque chose ? »','« On ferme jamais. Même la nuit. »'],
     talk:['« Le quartier a changé. Les clients ne sont plus les mêmes. »','« Je vois tout passer ici. Tout. »']},
   jardinerie:{label:'Jardinerie',short:'Jardinerie',col:'#6aa84f',floor:'#2c3a24',deco:'plantes',items:['#6aa84f','#8fbf4a','#c98aff','#e0b020'],
-    menu:'shop',menuLabel:'Voir les machines et les graines',names:['Jardinerie des Lilas'],clerks:['Rosalie'],
+    menu:'shop',menuLabel:'Voir le matériel',names:['Jardinerie des Lilas'],clerks:['Rosalie'],
     greet:['« Des pots, des séchoirs, des graines. Dites-moi ce qu’il vous faut. »'],
     talk:['« Une bonne ventilation, voilà le secret. Et ne dites pas que c’est moi qui l’ai dit. »']},
   concession:{label:'Concession auto',short:'Concession',col:'#3b6fd4',floor:'#262a33',deco:'voiture',items:['#c0c4ca','#3b6fd4','#222','#c0392b'],
-    menu:'garage',menuLabel:'Voir les véhicules',names:['Auto Lilas'],clerks:['Stéphane'],
+    menu:'garage',menuLabel:'Voir les véhicules',names:['Auto Lilas','Garage du Port'],clerks:['Stéphane','Nadia'],
     greet:['« Une belle voiture, ça change une vie. Regardez-moi ça. »'],
     talk:['« La Bugatti ? Je n’en ai vendu qu’une. Le client n’a jamais dit ce qu’il faisait. »']},
   bar:{label:'Bar',short:'Bar',col:'#d4872b',floor:'#3a2a1c',deco:'bar',items:['#2e8b57','#d4872b','#c0392b','#e0d6a0'],
@@ -150,12 +150,16 @@ const SHOPTYPES={
     names:['Fripe & Co','Le Dressing'],clerks:['Capucine','Lucien'],
     greet:['« Un nouveau look, ça aide à passer inaperçu. »','« Essayez, essayez. Les cabines sont au fond. »'],
     talk:['« Les flics reconnaissent les gens aux vêtements. Change de temps en temps. »']},
+  graineterie:{label:'Graineterie',short:'Graines',col:'#9a8a2e',floor:'#33301e',deco:'graines',items:['#8fbf4a','#c9a05a','#e0b020','#6aa84f','#b98a5a'],
+    menu:'shop',menuLabel:'Voir les graines',names:['Graineterie Verte','La Bonne Graine'],clerks:['Gaspard','Lucie'],
+    greet:['« Des graines de toutes les variétés, gardées au frais et au sec. »','« Bonjour ! Vous cherchez quelle variété ? »'],
+    talk:['« Plus la graine est chère, plus elle rapporte. Mais plus elle met de temps à pousser. »','« Arrosez régulièrement et taillez à mi-pousse : ça change tout. »']},
   deguisement:{label:'Magasin de déguisements',short:'Déguisement',col:'#e0b020',floor:'#3a3320',deco:'rayons',items:['#e0b020','#c0392b','#b05bd1','#2e8b57'],
     goods:['lunettes','barbe','perruque'],names:['Farces & Attrapes','Le Carnaval'],clerks:['Pierrot','Colombine'],
     greet:['« Mardi gras, c’est toute l’année ici ! »'],
     talk:['« Personne ne pose de questions à un homme avec une perruque. »']},
 };
-const SHOP_PLAN=[['bar','tours'],['superette','tours'],['deguisement','port'],['armurerie','port'],['bar','port'],['armurerie','port'],['vetements','cite'],['superette','cite'],['jardinerie','cite'],['concession','vieux'],['vetements','vieux'],['superette','vieux'],['deguisement','vieux']];
+const SHOP_PLAN=[['bar','tours'],['superette','tours'],['deguisement','port'],['armurerie','port'],['bar','port'],['armurerie','port'],['vetements','cite'],['superette','cite'],['jardinerie','cite'],['concession','vieux'],['vetements','vieux'],['superette','vieux'],['deguisement','vieux'],['graineterie','cite'],['graineterie','tours'],['concession','port']];
 const PNAMES=[['Léa','f'],['Hugo','m'],['Nadia','f'],['Karim','m'],['Chloé','f'],['Maxime','m'],['Fatou','f'],['Théo','m'],['Camille','f'],['Yanis','m'],['Sarah','f'],['Lucas','m'],['Inès','f'],['Mathis','m'],['Julie','f'],['Omar','m'],['Manon','f'],['Adel','m'],['Éva','f'],['Paul','m'],['Rose','f'],['Bastien','m'],['Lina','f'],['Gilles','m']];
 const GREETS=['Salut !','Bonjour','Hey','Yo','Ça va ?','Bonsoir'];
 const PKINDS={
@@ -186,9 +190,11 @@ const MM=Object.fromEntries(MACH.map(m=>[m.id,m]));
 /* ---------- état ---------- */
 const KEY='serre3d-v1';
 const LAB_COLS=6,LAB_ROWS=4,LAB_MAX=LAB_COLS*LAB_ROWS;
-const newG=(home='cite')=>({v:5,home,inv:{},look:{},began:0,cash:200,bank:0,heat:0,hp:100,strikes:0,strikeT:0,t:0,sel:'jardin',
-  seeds:{},raw:{},stock:{},lv:{},unlocked:{jardin:1,skunk:1},owned:{foot:1},veh:'foot',earned:0,
-  lab:{items:[],store:{}},
+/* au départ, le labo a déjà un pot, un séchoir, un robinet (arrosoir plein) et quelques graines */
+const CAN_MAX=8;
+const newG=(home='cite')=>({v:5,home,inv:{},look:{},began:0,cash:150,bank:0,heat:0,hp:100,strikes:0,strikeT:0,t:0,sel:'jardin',
+  seeds:{jardin:3},raw:{},stock:{},lv:{},unlocked:{jardin:1,skunk:1},owned:{foot:1},veh:'foot',earned:0,can:CAN_MAX,deliv:[],
+  lab:{items:[{id:'pot',slot:2,pl:null},{id:'sechoir',slot:5,pl:null}],store:{}},
   rel:{baron:0,momo:0,vega:0,tonton:0},ally:{},
   retired:Object.fromEntries(BIDS.filter(b=>BOSSES[b].sector===home).map(b=>[b,1])),
   own:Object.fromEntries(DKEYS.map(k=>[k,k===home?'you':BIDS.find(b=>BOSSES[b].sector===k)]))});
@@ -218,6 +224,8 @@ function migrate(g){
     if(!it||!MM[it.id]||!Number.isInteger(it.slot)||it.slot<0||it.slot>=LAB_MAX||used.has(it.slot))return false;
     used.add(it.slot);if(it.pl&&!SM[it.pl.s])it.pl=null;if(it.b&&!SM[it.b.s])it.b=null;return true});
   if(!SM[g.sel])g.sel='jardin';
+  g.can=clamp(typeof g.can==='number'?g.can:CAN_MAX,0,CAN_MAX);
+  g.deliv=(Array.isArray(g.deliv)?g.deliv:[]).filter(d=>d&&(d.k==='m'?MM[d.id]:SM[d.id])&&d.n>0);
   if(!g.owned[g.veh])g.veh='foot';
 }
 let G=null;
@@ -1222,6 +1230,8 @@ function furnishStore(sh,s){
     case 'bar':for(let i=-2;i<=2;i++){if(Math.abs(i*1.1)>cw/2)continue;mid(cd-.75,cd-.35,i*1.1-.2,i*1.1+.2,.75,0x3a2a1c,false)}for(let s0=-W/2+1;s0<W/2-1.2;s0+=.3)lbox(sh,gb,D-.5,D-.35,s0,s0+.12,2.5,2.85,pickI());break;
     case 'portants':for(const sd of [-1,1]){const s0=sd*Math.min(2.2,W/2-1.6);mid(1.4,1.48,s0-.04,s0+.04,1.6,0x777b82,false);lbox(sh,gb,1.2,1.7,s0-1,s0+1,1.5,1.56,0x777b82);for(let k=0;k<6;k++)lbox(sh,gb,1.25,1.65,s0-.9+k*.32,s0-.7+k*.32,.6,1.5,pickI())}break;
     case 'vitrines':for(const sd of [-1,1]){if(W<7)break;const s0=sd>0?W/2-1.9:-W/2+.7;lbox(sh,gb,1.6,3.2,s0,s0+1.2,0,.85,0x3d4147,true);lbox(sh,gb,1.75,3.05,s0+.15,s0+1.05,.85,.95,pickI());lbox(sh,gl,1.6,3.2,s0,s0+1.2,.85,1.25,0xaad4ff)}break;
+    case 'graines':for(let i=0;i<6;i++){const d=1.2+(i%3)*.75,s0=(i<3?-1:1)*1.9-.35;lbox(sh,gb,d,d+.6,s0,s0+.7,0,.55,[0xb89a6a,0xc9a05a,0x8a6d4a][i%3],true);lbox(sh,gb,d+.05,d+.55,s0+.05,s0+.65,.55,.62,0xd9d4c0)}
+      for(let s0=-W/2+1;s0<W/2-1.2;s0+=.5)for(const y of [2.55,2.8])lbox(sh,gb,D-.68,D-.62,s0,s0+.4,y,y+.2,0xd9c39a);break;
     default:if(D>8&&W>7.5){for(const s0 of [-2.1,1.5])shelfUnit(sh,gb,1.8,cd-1.3,s0,s0+.6,1.5,'top',pickI,rnd)}
   }
   if(T.bank){lbox(sh,gl,cd+.3,cd+.36,-cw/2,cw/2,1.1,2.3,0xaad4ff);lbox(sh,gb,D-.7,D-.6,-1.3,1.3,.3,2.6,0x8d9096);lbox(sh,gb,D-.78,D-.7,-.2,.2,1.3,1.6,0xd9b020)}
@@ -1710,7 +1720,7 @@ function updCamera(dt){
   if(allowed<CAMS.d)CAMS.d=allowed;else CAMS.d+=(allowed-CAMS.d)*(1-Math.exp(-dt*2.2));
   const k=CAMS.d/dist;
   let cx=P.x-fx*CAMS.d,cz=P.z-fz*CAMS.d,cy=py+hgt*(.4+.6*k);
-  if(sh)cy=Math.min(sh.ceil-.4,cy+(1-k)*2.4); // en intérieur, plus la caméra est proche, plus elle monte : vue plongeante
+  if(sh)cy=Math.min(sh.camMax||sh.ceil-.4,cy+(1-k)*2.4); // en intérieur, plus la caméra est proche, plus elle monte : vue plongeante
   if(CAM.shake){const s=CAM.shake*.035;cx+=(Math.random()-.5)*s;cy+=(Math.random()-.5)*s;cz+=(Math.random()-.5)*s}
   camera.position.set(cx,Math.max(.6,cy),cz);
   const la=foot?.8:3;camera.lookAt(P.x+fx*la,py+(foot?.15:.5),P.z+fz*la);
@@ -2150,25 +2160,55 @@ function buildLab(cx,cz){
   const DN=18,WT=26,hx=nx?DN/2:WT/2,hz=nx?WT/2:DN/2;
   const sh=buildShell({x0:cx-hx,x1:cx+hx,z0:cz-hz,z1:cz+hz,h:7.4,nx,nz,col:0x9a6450,ceil:5.4,inCol:0xd9d3c7,floorCol:0x5a5f64,
     sign:'LA SERRE',signBg:'#4b2470',signFg:'#e9ffd0',lm:true,parent:LMGROUP});
-  sh.lab=true;
+  sh.lab=true;sh.camMax=sh.ceil-.9; // sous les rampes de lampes
   const L={sh,slots:[],nx,nz,items:new Map(),floorN:-1,floor:null};
   for(let i=0;i<LAB_MAX;i++){const r=Math.floor(i/LAB_COLS),c=i%LAB_COLS,[x,z]=shellLocal(sh,4.6+r*3,-7.5+c*3);L.slots.push({x,z,r,c})}
-  const gb=new GB(),lit=new GB(),W2=sh.W/2;
-  // bureau avec l'ordinateur, à gauche en entrant
-  lbox(sh,gb,.7,1.7,-5.6,-2.9,.74,.82,0x6b5440,true);
+  const gb=new GB(),lit=new GB(),W2=sh.W/2,D=sh.D,sR=W2,sL=-W2;
+  // sol en béton, paillasson
+  {const fl=new GB(),[ax,az]=shellLocal(sh,0,-W2),[bx,bz]=shellLocal(sh,D,W2);fl.hq(Math.min(ax,bx),Math.min(az,bz),Math.max(ax,bx),Math.max(az,bz),.05,WHITE,5);
+   const m=new THREE.Mesh(fl.geo(),new THREE.MeshLambertMaterial({map:TEX.conc,color:0x8f9295,...PO(1)}));m.receiveShadow=true;LMGROUP.add(m)}
+  lbox(sh,gb,.05,1.1,-1.1,1.1,.05,.08,0x2a2622);
+  // le bureau : plateau, pieds, écran, clavier, souris, lampe, papiers, chaise, caisson
+  lbox(sh,gb,.7,1.7,-5.6,-2.9,.74,.8,0x6b5440,true);
   for(const [d,s] of [[.75,-5.5],[.75,-3],[1.6,-5.5],[1.6,-3]])lbox(sh,gb,d,d+.08,s,s+.08,0,.74,0x3a2e24);
-  lbox(sh,gb,1.0,1.1,-4.8,-3.6,.82,1.62,0x15161a);lbox(sh,gb,1.2,1.5,-4.4,-4.0,.82,.86,0x15161a);
+  lbox(sh,gb,1.0,1.1,-4.8,-3.6,.82,1.62,0x15161a);lbox(sh,gb,1.2,1.5,-4.4,-4.0,.8,.84,0x15161a);
   lbox(sh,lit,1.1,1.13,-4.72,-3.68,.9,1.55,0x4fb3ff);
+  lbox(sh,gb,1.42,1.6,-4.65,-3.85,.8,.83,0x24262b);lbox(sh,gb,1.45,1.56,-3.55,-3.45,.8,.83,0x24262b);
+  lbox(sh,gb,.85,.95,-5.45,-5.35,.8,1.3,0x2a2c30);lbox(sh,lit,.92,1.15,-5.5,-5.28,1.22,1.3,0xfff0c0);
+  lbox(sh,gb,1.15,1.5,-3.35,-3.0,.8,.82,0xf2efe8);lbox(sh,gb,1.2,1.48,-3.3,-3.05,.82,.84,0xe8e2d0);
   lbox(sh,gb,2.0,2.5,-4.5,-3.9,0,.5,0x2a2c30);lbox(sh,gb,2.4,2.5,-4.5,-3.9,.5,1.2,0x2a2c30);
+  lbox(sh,gb,.7,1.3,-6.5,-5.85,0,1.1,0x8d9096,true);lbox(sh,gb,1.29,1.31,-6.4,-5.95,.85,.9,0x55585e);
+  // évier et robinet, contre le mur de droite (pour remplir l'arrosoir)
+  lbox(sh,gb,2.2,3.5,sR-.75,sR,0,.82,0x9aa0a6,true);lbox(sh,gb,2.25,3.45,sR-.72,sR-.03,.82,.9,0xc9cdd2);lbox(sh,gb,2.4,3.3,sR-.6,sR-.12,.865,.905,0x4f5660);
+  lbox(sh,gb,2.8,2.9,sR-.12,sR-.02,.9,1.38,0xb8bcc2);lbox(sh,gb,2.8,2.9,sR-.45,sR-.1,1.3,1.38,0xb8bcc2);lbox(sh,gb,2.6,2.7,sR-.14,sR-.04,1.05,1.15,0xc0392b);
+  lbox(sh,gb,3.6,3.95,sR-.62,sR-.28,0,.34,0x3f7a4a);lbox(sh,gb,3.75,3.82,sR-.75,sR-.28,.3,.36,0x3f7a4a);
+  lbox(sh,gb,4.2,4.9,sR-.72,sR-.05,0,1.0,0x2f6f96,true);lbox(sh,gb,4.3,4.8,sR-.62,sR-.15,1.0,1.05,0x24587a);
+  lbox(sh,gb,5.3,5.9,sR-.25,sR-.02,.8,1.4,0x2f8a4a);
+  // établi et panneau à outils, contre le mur de gauche
+  lbox(sh,gb,6,9.4,sL,sL+.8,.88,.95,0x8a6a48,true);
+  for(const d of [6.05,9.25])for(const s of [sL+.05,sL+.68])lbox(sh,gb,d,d+.1,s,s+.08,0,.88,0x5a4636);
+  lbox(sh,gb,6,9.4,sL,sL+.05,1.2,2.4,0xb89a6a);
+  for(const [d0,d1,y0,y1,c] of [[6.4,6.5,1.5,2.1,0x2a2c30],[6.8,7.4,1.9,2.0,0xc0392b],[7.7,7.8,1.4,2.2,0x2a2c30],[8.1,8.6,1.6,1.75,0x777b82],[8.9,9.0,1.5,2.0,0xe0b020]])lbox(sh,gb,d0,d1,sL+.05,sL+.1,y0,y1,c);
+  lbox(sh,gb,6.3,6.8,sL+.2,sL+.6,.95,1.15,0xc0392b);lbox(sh,gb,7.4,8.4,sL+.15,sL+.65,.95,1.0,0x3a3d42);
+  // ventilateur sur pied, gaine de ventilation au plafond
+  lbox(sh,gb,12.25,12.45,sL+.45,sL+.65,0,1.3,0x2a2c30);lbox(sh,gb,12.05,12.65,sL+.25,sL+.85,1.3,1.95,0x55585e);
+  lbox(sh,gb,2,D-1,sR-1.7,sR-1.0,sh.ceil-.8,sh.ceil-.2,0xb8bcc2);
+  // sacs de terreau et d'engrais au fond, extincteur, poubelle
+  const sacks=[0xb89a6a,0x8a6d4a,0x5f8a35,0xd9d4c0];
+  for(let i=0;i<7;i++){const d=D-1.5+(i%2)*.7,s=sL+.3+Math.floor(i/2)*.9,y=i>=6?.4:0;lbox(sh,gb,d,d+.65,s,s+.8,y,y+.4,sacks[i%4])}
+  lbox(sh,new GB(),D-1.6,D,sL,sL+3.4,0,.8,0,true);
+  lbox(sh,gb,.2,.45,1.7,1.95,0,.65,0xc0392b);lbox(sh,gb,.25,.4,1.75,1.9,.65,.75,0x2a2c30);
+  lbox(sh,gb,.3,.8,-7.2,-6.7,0,.75,0x3a3d42);
   // étagères de stockage, à droite en entrant
   lbox(sh,gb,.5,1.3,2.9,6.2,0,2.3,0x6b5440,true);
-  const sacks=[0xb89a6a,0x8a6d4a,0x5f8a35,0xd9d4c0];for(let i=0;i<10;i++){const s=3.05+(i%5)*.6,y=i<5?.9:1.6;lbox(sh,gb,.6,1.2,s,s+.45,y,y+.5,sacks[i%4])}
-  // rampes de lampes de culture au plafond (déco) et lucarnes violettes sur le toit
+  for(let i=0;i<10;i++){const s=3.05+(i%5)*.6,y=i<5?.9:1.6;lbox(sh,gb,.6,1.2,s,s+.45,y,y+.5,sacks[i%4])}
+  // rampes de lampes de culture au plafond
   for(let r=0;r<LAB_ROWS;r++){lbox(sh,gb,4.25+r*3,4.95+r*3,-9,9,sh.ceil-.5,sh.ceil-.4,0x2a2c30);lbox(sh,lit,4.35+r*3,4.85+r*3,-8.8,8.8,sh.ceil-.53,sh.ceil-.5,0xd9a0ff)}
   const sky=new GB();for(let r=0;r<3;r++){const [ax,az]=shellLocal(sh,3.5+r*4.5,-9),[bx,bz]=shellLocal(sh,6+r*4.5,9);sky.box(Math.min(ax,bx),sh.h+.05,Math.min(az,bz),Math.max(ax,bx),sh.h+.5,Math.max(az,bz),WHITE)}
   meshOf(gb,MAT.vc,{parent:LMGROUP,cast:true});meshOf(lit,MAT.lit,{parent:LMGROUP,recv:false});
   {const m=new THREE.Mesh(sky.geo(),MAT.sky);LMGROUP.add(m)}
   {const [x,z]=shellLocal(sh,2.6,-4.25);L.pc={x,z}}
+  {const [x,z]=shellLocal(sh,2.85,sR-1.3);L.tap={x,z}}
   {const [x,z]=shellLocal(sh,3.1,1.5);L.spawn={x,z,th:Math.atan2(-nx,-nz)}}
   L.park=roadsideSpot(sh.door.x,sh.door.z);
   L.group=new THREE.Group();LMGROUP.add(L.group);
@@ -2251,7 +2291,10 @@ function harvestYield(it){const pl=it.pl,s=SM[pl.s],m=MM[it.id];return Math.max(
 function lPlace(i,id){if(itemAt(i)||i>=labSlots()||!(G.lab.store[id]>0))return;G.lab.store[id]--;G.lab.items.push({id,slot:i,pl:null});labSync();save()}
 function lRemove(i){const it=itemAt(i);if(!it||it.b)return;G.lab.items=G.lab.items.filter(x=>x!==it);G.lab.store[it.id]=(G.lab.store[it.id]||0)+1;labSync();save();toast(MM[it.id].name+' rangé dans ton stock.')}
 function lPlant(i,s,quiet){const it=itemAt(i);if(!it||MM[it.id].cat!=='culture'||it.pl||!(G.seeds[s]>0))return false;G.seeds[s]--;it.pl={s,p:0,w:100,hp:100,pr:0};if(!quiet){G.sel=s;save()}return true}
-function lWater(i){const it=itemAt(i);if(it&&it.pl&&it.pl.hp>0){it.pl.w=100;floater(P.x,P.z,'Arrosé','#7fd1ff',false)}}
+function lWater(i){const it=itemAt(i);if(!it||!it.pl||it.pl.hp<=0)return;
+  if(G.can<=0){toast('Arrosoir vide : remplis-le au robinet, à droite de l’entrée.','bad');return}
+  G.can--;it.pl.w=100;floater(P.x,P.z,'Arrosé · arrosoir '+G.can+'/'+CAN_MAX,'#7fd1ff',false)}
+function lTap(){G.can=CAN_MAX;floater(P.x,P.z,'Arrosoir rempli','#7fd1ff',false)}
 function lPrune(i){const it=itemAt(i);if(it&&it.pl&&it.pl.pr===1){it.pl.pr=2;floater(P.x,P.z,'Taillée : +20 %','#9ccf6a',false)}}
 function lClear(i){const it=itemAt(i);if(it)it.pl=null}
 function lHarvest(i,quiet){
@@ -2279,22 +2322,23 @@ function labTarget(){
   const L=LAB;if(!L)return null;
   let best=-1,bd=1.9;
   L.slots.forEach((p,i)=>{const d=Math.hypot(P.x-p.x,P.z-p.z);if(d<bd){bd=d;best=i}});
-  const dpc=Math.hypot(P.x-L.pc.x,P.z-L.pc.z);
+  const dpc=Math.hypot(P.x-L.pc.x,P.z-L.pc.z),dtap=Math.hypot(P.x-L.tap.x,P.z-L.tap.z);
+  if(dtap<1.8&&(best<0||dtap<bd)&&dtap<=dpc)return G.can>=CAN_MAX?{k:'info',label:`Robinet : ton arrosoir est plein (${G.can}/${CAN_MAX})`}:{k:'tap',label:`Remplir l’arrosoir (${G.can}/${CAN_MAX})`};
   if(dpc<1.8&&(best<0||dpc<bd))return {k:'pc',label:'Ordinateur : gérer le labo'};
   if(best<0)return null;
   const i=best;
   if(i>=labSlots())return {k:'info',slot:i,label:'Emplacement verrouillé : agrandis le labo à l’ordinateur'};
   const it=itemAt(i);
-  if(!it){const has=MACH.some(m=>(G.lab.store[m.id]||0)>0);return has?{k:'place',slot:i,label:'Installer une machine ici'}:{k:'info',slot:i,label:'Emplacement libre : achète des machines à l’ordinateur'}}
+  if(!it){const has=MACH.some(m=>(G.lab.store[m.id]||0)>0);return has?{k:'place',slot:i,label:'Installer une machine ici'}:{k:'info',slot:i,label:'Emplacement libre : achète des machines à la jardinerie ou à l’ordinateur'}}
   const m=MM[it.id];
   if(m.cat==='culture'){
     const pl=it.pl;
-    if(!pl){const s=bestSeed();return s?{k:'plant',slot:i,s,label:'Planter : '+SM[s].name,opt:true}:{k:'info',slot:i,label:'Pas de graines : achète-en à l’ordinateur',opt:true}}
+    if(!pl){const s=bestSeed();return s?{k:'plant',slot:i,s,label:'Planter : '+SM[s].name,opt:true}:{k:'info',slot:i,label:'Pas de graines : graineterie ou ordinateur',opt:true}}
     if(pl.hp<=0)return {k:'clear',slot:i,label:'Arracher la plante fanée',opt:true};
     if(pl.p>=1)return {k:'harvest',slot:i,label:`Récolter ${SM[pl.s].name} (+${harvestYield(it)})`,opt:true};
-    if(pl.w<45)return {k:'water',slot:i,label:'Arroser',opt:true};
+    if(pl.w<45)return G.can>0?{k:'water',slot:i,label:`Arroser (arrosoir ${G.can}/${CAN_MAX})`,opt:true}:{k:'info',slot:i,label:'Arrosoir vide : remplis-le au robinet, à droite de l’entrée',opt:true};
     if(pl.pr===1)return {k:'prune',slot:i,label:'Tailler (+20 % de récolte)',opt:true};
-    return {k:'water',slot:i,label:`Arroser · ${SM[pl.s].name} ${Math.floor(pl.p*100)} %`,opt:true};
+    return G.can>0?{k:'water',slot:i,label:`Arroser · ${SM[pl.s].name} ${Math.floor(pl.p*100)} %`,opt:true}:{k:'info',slot:i,label:`${SM[pl.s].name} ${Math.floor(pl.p*100)} % · arrosoir vide`,opt:true};
   }
   if(m.cat==='transfo'){
     if(it.b)return {k:'info',slot:i,label:`Séchage en cours : ${Math.floor(100*(1-it.b.t/m.time))} %`,opt:true};
@@ -2309,6 +2353,7 @@ function labDo(t){
     case 'place':{const ids=MACH.filter(m=>(G.lab.store[m.id]||0)>0);if(ids.length===1)lPlace(t.slot,ids[0].id);else placeDialog(t.slot);return}
     case 'plant':lPlant(t.slot,t.s);break;
     case 'water':lWater(t.slot);break;
+    case 'tap':lTap();break;
     case 'prune':lPrune(t.slot);break;
     case 'harvest':lHarvest(t.slot);break;
     case 'clear':lClear(t.slot);break;
@@ -2326,8 +2371,8 @@ function labOptions(t){
   const m=MM[it.id],ch=[];
   if(m.cat==='culture'){
     if(!it.pl){for(const v of STRAINS)if((G.seeds[v.id]||0)>0)ch.push({label:`Planter ${v.name} (${G.seeds[v.id]} graine${G.seeds[v.id]>1?'s':''})`,desc:`Pousse en ${v.time} s · ${v.yield} u. par plante · vente ~${fmt(v.price)}/u.`,quick:1,fn:()=>lPlant(i,v.id)});
-      if(!ch.length)ch.push({label:'Aucune graine en stock',desc:'Achète des graines à l’ordinateur du labo ou à la jardinerie.',off:1})}
-    else if(it.pl.hp>0){ch.push({label:'Arroser',desc:`Eau : ${Math.round(it.pl.w)} %`,quick:1,fn:()=>lWater(i)});
+      if(!ch.length)ch.push({label:'Aucune graine en stock',desc:'Achète des graines à la graineterie ou commande-les à l’ordinateur du labo.',off:1})}
+    else if(it.pl.hp>0){ch.push({label:'Arroser',desc:G.can>0?`Eau de la plante : ${Math.round(it.pl.w)} % · arrosoir ${G.can}/${CAN_MAX}`:'Arrosoir vide : remplis-le au robinet.',off:G.can<=0,quick:1,fn:()=>lWater(i)});
       if(it.pl.pr===1)ch.push({label:'Tailler',desc:'+20 % de récolte.',quick:1,fn:()=>lPrune(i)});
       if(it.pl.p>=1)ch.push({label:'Récolter',desc:`+${harvestYield(it)} unités de récolte.`,quick:1,fn:()=>lHarvest(i)});
       ch.push({label:'Arracher la plante',desc:'Elle sera perdue.',quick:1,fn:()=>lClear(i)})}
@@ -2377,7 +2422,8 @@ function labAlerts(){
 /* étiquettes au-dessus des emplacements, quand on est dans le labo */
 function labLabels(){
   const L=LAB;if(!L||!(curShell&&curShell.lab))return;
-  label(L.pc,L.pc.x,1.9,L.pc.z,'Ordinateur','Gérer le labo, acheter','#4fb3ff');
+  label(L.pc,L.pc.x,1.9,L.pc.z,'Ordinateur','Gérer le labo, commander','#4fb3ff');
+  label(L.tap,L.tap.x,1.7,L.tap.z,'Robinet','Arrosoir '+G.can+'/'+CAN_MAX,'#5fb0e0');
   const n=labSlots();
   L.slots.forEach((p,i)=>{
     if(Math.hypot(P.x-p.x,P.z-p.z)>11)return;
@@ -2391,6 +2437,34 @@ function labLabels(){
     else if(m.cat==='transfo')label(p,p.x,2.6,p.z,m.name,it.b?`${it.b.n} × ${SM[it.b.s].name}`:'Vide','#ffb060',it.b?[{v:1-it.b.t/m.time,c:'#ffb060'}]:null);
     else label(p,p.x,2.3,p.z,m.name,'Arrose autour','#5fb0e0');
   });
+}
+
+/* ---------- livraisons : ce qu'on commande à l'ordinateur arrive en camionnette devant le labo ---------- */
+let DV=null;
+const delivFee=c=>Math.max(10,Math.round(c*.1));
+function queueDelivery(k,id,n){
+  (G.deliv=G.deliv||[]).push({k,id,n});save();
+  if(!DV)startDelivery();
+  toast('Commande passée : la camionnette arrive au labo dans une minute environ.','good');
+}
+function startDelivery(){
+  const L=LAB;if(!L)return;
+  const p=randRoadPoint(L.park.x,L.park.z,170,260),e=mkAI({k:'van',c:0xf5f5f5,courier:1},p.x,p.z,0,1.9);
+  e.path=pathTo(e.x,e.z,L.park.x,L.park.z);if(e.path.length)e.th=Math.atan2(e.path[0][0]-e.x,e.path[0][1]-e.z);
+  DV={e,t:0};
+}
+function updDelivery(dt){
+  if(!DV){if(G.deliv&&G.deliv.length&&LAB)startDelivery();return}
+  const e=DV.e,L=LAB;DV.t+=dt;
+  if(DV.left!=null){DV.left-=dt;followPath(e,dt,22);if(DV.left<=0)DV=null;return}
+  const done=followPath(e,dt,24);
+  if(done||Math.hypot(e.x-L.park.x,e.z-L.park.z)<14||DV.t>80){
+    deliverAll();e.v=0;const p=randRoadPoint(e.x,e.z,200,300);e.path=pathTo(e.x,e.z,p.x,p.z);DV.left=12}
+}
+function deliverAll(){
+  const it=G.deliv||[];if(!it.length)return;const parts=[];
+  for(const d of it){if(d.k==='m'){G.lab.store[d.id]=(G.lab.store[d.id]||0)+d.n;parts.push(d.n+' × '+MM[d.id].name)}else{G.seeds[d.id]=(G.seeds[d.id]||0)+d.n;parts.push(d.n+' graine'+(d.n>1?'s':'')+' de '+SM[d.id].name)}}
+  G.deliv=[];save();toast('Livraison arrivée au labo : '+parts.join(', ')+'.','good');Sfx.alert();
 }
 
 /* ---------- économie (tourne même menu ouvert) ---------- */
@@ -2548,6 +2622,7 @@ function renderWorld(now,dt,fx,fz){
   for(const e of couriers)drawVehE(e,e.spr,e.x,e.z,e.th,e.brk);
   for(const e of gangs)if(!G.retired[e.boss])drawVehE(e,e.spr,e.x,e.z,e.th,e.brk);
   for(const e of cops)drawVehE(e,e.spr,e.x,e.z,e.th,e.brk);
+  if(DV)drawVehE(DV.e,DV.e.spr,DV.e.x,DV.e.z,DV.e.th,DV.e.brk);
   if(meetCar)drawVehE(meetCar,meetCar.spr,meetCar.x,meetCar.z,meetCar.th,meetCar.brk);
   for(const p of peds)drawHumanE(p,p.look,p.x,p.z,p.th,p.ph,p.hold>0?0:p.sp,t);
   for(const o of orders){drawHumanE(o,o.look,o.x,o.z,o.nang,0,0,t+o.id);if(started&&Math.hypot(o.x-P.x,o.z-P.z)<160)drawRing(o.ring||(o.ring={}),o.x,o.z,4.2+pulse*.4,o.rival?0xff4a30:0xffa63d,.75)}
@@ -2582,6 +2657,7 @@ function worldLabels(){
     label(o,o.x,up,o.z,o.n,fmt(o.cash)+' · '+(DIS[o.hd]?DIS[o.hd].name:''),'#7fd1ff');
     if(o.bub)label(o.bk||(o.bk={}),o.x,up+1.7,o.z,'« '+o.bub.t+' »','','#f3e6d6')}
   if(MP.myBub&&!HIDE)label(MP,P.x,(P.def.kind==='foot'?2.3:2.9)+.2,P.z,'« '+MP.myBub.t+' »','','#7fd1ff');
+  if(DV&&DV.left==null&&Math.hypot(DV.e.x-P.x,DV.e.z-P.z)<80)label(DV,DV.e.x,3.1,DV.e.z,'Livraison pour ton labo','','#ffa63d');
   if(meetCar)label(meetCar,meetCar.x,2.6,meetCar.z,BOSSES[meetCar.boss].name+' veut te parler','',BOSSES[meetCar.boss].col);
   if(CAR&&P.def.kind==='foot'&&!curShell&&Math.hypot(CAR.x-P.x,CAR.z-P.z)<45)label(CAR,CAR.x,2.3,CAR.z,'Ta '+VM[CAR.id].name,'','#8fbf4a');
   if(LAB&&!curShell&&Math.hypot(LAB.sh.door.x-P.x,LAB.sh.door.z-P.z)<90)label(LAB,LAB.sh.door.x,6,LAB.sh.door.z,'Ton labo',LABAL.txt||'','#c98aff');
@@ -2664,16 +2740,20 @@ function tabLabo(){
   s+=confirmReset?`<div class="chips"><span class="note">Tout effacer ?</span><button class="btn red" data-act="resetyes">Oui, recommencer</button><button class="btn ghost" data-act="resetno">Non</button></div>`:`<div><button class="btn ghost" data-act="reset">Nouvelle partie</button></div>`;
   return s;
 }
+/* à l'ordinateur : commande livrée (frais) ; à la jardinerie : matériel ; à la graineterie : graines (sur place, sans frais) */
 function tabShop(){
-  let s='<p class="note">Les machines achetées arrivent dans ton stock : installe-les ensuite dans le labo, sur un emplacement libre. Les plus chères poussent plus vite et produisent plus.</p>';
-  for(const [cat,title] of [['culture','Culture'],['eau','Arrosage automatique'],['transfo','Transformation de la récolte']]){
-    s+=`<div><h2>${title}</h2><div class="list">`+MACH.filter(m=>m.cat===cat).map(m=>{const c=machPrice(m),own=machOwned(m.id);
+  const at=menuAt&&menuAt.type,mach=at!=='graineterie',seeds=at!=='jardinerie',deliv=!at,price=c=>deliv?c+delivFee(c):c;
+  let s=deliv?'<p class="note">Ta commande est livrée au labo en camionnette, en une minute environ. Frais de livraison : 10 % (10 € minimum). Sans frais et tout de suite : la jardinerie pour le matériel, la graineterie pour les graines.</p>'
+    :`<p class="note">Achat sur place, sans frais. ${mach?'Installe ensuite tes machines sur un emplacement libre du labo.':'Les graines vont directement dans ton stock.'}</p>`;
+  if(deliv&&G.deliv&&G.deliv.length)s+=`<p class="note" style="color:var(--ok)">En route vers le labo : ${G.deliv.map(d=>d.n+' × '+(d.k==='m'?MM[d.id].name:'graine de '+SM[d.id].name)).join(', ')}.</p>`;
+  if(mach)for(const [cat,title] of [['culture','Culture'],['eau','Arrosage automatique'],['transfo','Transformation de la récolte']]){
+    s+=`<div><h2>${title}</h2><div class="list">`+MACH.filter(m=>m.cat===cat).map(m=>{const c=price(machPrice(m)),own=machOwned(m.id);
       return `<div class="item"><b>${m.name} <span class="tag">niv. ${m.tier}</span>${own?` <span class="tag ok">${own} possédé${own>1?'s':''}</span>`:''}</b><span>${m.desc}</span><button class="btn" data-act="bm:${m.id}" data-cost="${c}">${fmt(c)}</button></div>`}).join('')+'</div></div>';
   }
-  s+='<div><h2>Graines</h2><div class="list">'+STRAINS.map(v=>{
+  if(seeds)s+='<div><h2>Graines</h2><div class="list">'+STRAINS.map(v=>{
     if(!G.unlocked[v.id])return `<div class="item"><b>${v.name} <span class="tag">verrouillée</span></b><span>Pousse en ${v.time} s · ${v.yield} u. par plante · vente ~${fmt(v.price)}/u.</span><button class="btn ghost" data-act="unl:${v.id}" data-cost="${v.unlock}">Débloquer ${fmt(v.unlock)}</button></div>`;
     const c=seedCost(v);
-    return `<div class="item"><b>${v.name} <span class="tag ok">${G.seeds[v.id]||0} en stock</span></b><span>${fmt(c)} la graine · pousse en ${v.time} s · ${v.yield} u. par plante · vente ~${fmt(v.price)}/u.</span><span class="buyrow"><button class="btn" data-act="bs:${v.id}:1" data-cost="${c}">×1</button><button class="btn" data-act="bs:${v.id}:5" data-cost="${c*5}">×5</button><button class="btn" data-act="bs:${v.id}:10" data-cost="${c*10}">×10</button></span></div>`}).join('')+'</div></div>';
+    return `<div class="item"><b>${v.name} <span class="tag ok">${G.seeds[v.id]||0} en stock</span></b><span>${fmt(c)} la graine${deliv?' + livraison':''} · pousse en ${v.time} s · ${v.yield} u. par plante · vente ~${fmt(v.price)}/u.</span><span class="buyrow">${[1,5,10].map(n=>`<button class="btn" data-act="bs:${v.id}:${n}" data-cost="${price(c*n)}">×${n}</button>`).join('')}</span></div>`}).join('')+'</div></div>';
   return s;
 }
 const lvTxt=u=>lv(u.id)+'/'+u.max;
@@ -2730,10 +2810,10 @@ function tabBosses(){
     return `<div class="item"><b style="color:${b.col}">${b.name} <span class="tag ${st==='ally'?'ok':(st==='war'||st==='hostile')?'fast':''}">${lab}</span></b><span>${b.style} Secteur : ${DIS[b.sector].name}${G.own[b.sector]==='you'?' (à toi)':''}. Relation ${r>0?'+':''}${Math.round(r)}.${cut}</span>${G.retired[id]?'':`<button class="btn" data-act="gift:${id}" data-cost="${giftCost()}">Cadeau ${fmt(giftCost())}</button>`}</div>`}).join('')+'</div>';
   return s;
 }
-const TABS={labo:['Le labo',tabLabo],shop:['Boutique',tabShop],ups:['Améliorations',tabUps],team:['Équipe',tabTeam],garage:['Garage',tabGarage],clients:['Clients',tabClients],bosses:['Les gérants',tabBosses],mp:['Multijoueur',tabMp],save:['Sauvegarde',tabSave]};
+const TABS={labo:['Le labo',tabLabo],shop:['Commander',tabShop],ups:['Améliorations',tabUps],team:['Équipe',tabTeam],garage:['Garage',tabGarage],clients:['Clients',tabClients],bosses:['Les gérants',tabBosses],mp:['Multijoueur',tabMp],save:['Sauvegarde',tabSave]};
 function renderMenu(){
   const sc=$('body').scrollTop;
-  $('mTitle').textContent=TABS[tab][0];$('body').innerHTML=TABS[tab][1]();$('body').scrollTop=sc;
+  $('mTitle').textContent=tab==='shop'&&menuAt?menuAt.name:TABS[tab][0];$('body').innerHTML=TABS[tab][1]();$('body').scrollTop=sc;
   $('tabs').hidden=menuOnly;
   document.querySelectorAll('#tabs .tab').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.act==='tab:'+tab)));
   refreshMenu();
@@ -2754,8 +2834,10 @@ $('menu').addEventListener('click',e=>{
     case 'tab':if(menuOnly)return;tab=v;confirmReset=false;$('body').scrollTop=0;break;
     case 'sel':G.sel=v;break;
     case 'unl':{const c=SM[v].unlock;if(G.cash>=c&&!G.unlocked[v]){G.cash-=c;G.unlocked[v]=1;G.sel=v;toast(SM[v].name+' débloquée : achète ses graines.','good')}break}
-    case 'bm':{const m=MM[v],c=machPrice(m);if(m&&G.cash>=c){G.cash-=c;G.lab.store[v]=(G.lab.store[v]||0)+1;Sfx.cash();toast(m.name+' acheté. Installe-le sur un emplacement libre du labo.','good')}break}
-    case 'bs':{const s=SM[v],n=+v2||1,c=seedCost(s)*n;if(s&&G.unlocked[v]&&G.cash>=c){G.cash-=c;G.seeds[v]=(G.seeds[v]||0)+n;Sfx.cash();toast(`+${n} graine${n>1?'s':''} de ${s.name}.`,'good')}break}
+    case 'bm':{const m=MM[v];if(!m)break;const c0=machPrice(m),c=menuAt?c0:c0+delivFee(c0);if(G.cash>=c){G.cash-=c;Sfx.cash();
+      if(menuAt){G.lab.store[v]=(G.lab.store[v]||0)+1;toast(m.name+' acheté. Installe-le sur un emplacement libre du labo.','good')}else queueDelivery('m',v,1)}break}
+    case 'bs':{const s=SM[v],n=+v2||1;if(!s||!G.unlocked[v])break;const c0=seedCost(s)*n,c=menuAt?c0:c0+delivFee(c0);if(G.cash>=c){G.cash-=c;Sfx.cash();
+      if(menuAt){G.seeds[v]=(G.seeds[v]||0)+n;toast(`+${n} graine${n>1?'s':''} de ${s.name}.`,'good')}else queueDelivery('s',v,n)}break}
     case 'up':{const u=UPS.find(x=>x.id===v),c=upCost(u);if(G.cash>=c&&lv(v)<u.max){G.cash-=c;G.lv[v]=lv(v)+1;if(v==='labo'){labFloorSync();toast('Le labo s’agrandit : 4 emplacements de plus.','good')}}break}
     case 'hire':{const u=TEAM.find(x=>x.id===v),c=tmCost(u);if(G.cash>=c&&lv(v)<u.max){G.cash-=c;G.lv[v]=lv(v)+1;syncCouriers()}break}
     case 'buy':{const c=vPrice(VM[v]);if(G.cash>=c&&!G.owned[v]){G.cash-=c;G.owned[v]=1;chooseVehicle(v);Sfx.cash();toast(VM[v].name+' achetée. Elle t’attend '+(menuAt&&menuAt.park?'devant la concession':'devant le labo')+'.','good')}break}
@@ -2806,13 +2888,13 @@ function beginGame(fresh){
   ended=false;HIDE=null;meetCar=null;meetT=110;setupGangs();syncCouriers();
   couriers.forEach(c=>{const p=randRoadPoint(homeSpawn().x,homeSpawn().z,10,60);c.x=p.x;c.z=p.z});
   orders.slice().forEach(removeOrder);
-  if(fresh)setTimeout(()=>toast('Ton labo est vide. Va à l’ordinateur, sur le bureau près de l’entrée, pour acheter un pot, un séchoir et des graines.'),600);
+  if(fresh){setTimeout(()=>toast('Ton labo a déjà un pot, un séchoir et 3 graines. Plante dans le pot, puis arrose : l’arrosoir se remplit au robinet, à droite de l’entrée.'),600);setTimeout(()=>toast('Le reste s’achète à la jardinerie (matériel) et à la graineterie (graines), ou se commande à l’ordinateur du labo, livré en camionnette.'),7000)}
   else setTimeout(()=>toast('De retour au labo.'),400);
 }
 function resetGame(){
   endFast();cops=[];couriers=[];
   gangs=[];orders.slice().forEach(removeOrder);
-  meetCar=null;HIDE=null;parkCar(null);
+  meetCar=null;HIDE=null;DV=null;parkCar(null);
   G=newG();applyLook();save();started=false;ended=false;talking=false;raidOpen=false;closeMenu();closeShop();
   $('end').hidden=true;$('talk').hidden=true;$('raid').hidden=true;$('hud').hidden=true;$('start').hidden=false;
   $('goRow').hidden=false;$('goals').hidden=false;$('pickBox').hidden=true;
@@ -3033,7 +3115,7 @@ function simStep(real,dt){
     updInside();if(HIDE)HIDE.t+=dt;
     updOrders(dt);updCops(dt);updGangs(dt);
     if(!ended){
-      updCouriers(dt);updMission(dt);updMeeting(dt);
+      updCouriers(dt);updMission(dt);updMeeting(dt);updDelivery(dt);
       updTraffic(dt,P.x,P.z,[P].concat(traffic,cops,gangs,couriers));updPeds(dt,P.x,P.z);if(!curShell)bumps(dt);
       if(!threat)G.hp=Math.min(100,G.hp+1.2*dt);
       near=cops.reduce((m,c)=>Math.min(m,Math.hypot(c.x-P.x,c.z-P.z)),1e9);
