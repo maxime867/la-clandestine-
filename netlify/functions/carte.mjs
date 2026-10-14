@@ -24,6 +24,7 @@ function clean(id, d) {
     t: Date.now(), by: str(d.by, 20) || null,
   };
   if (typeof d.color === "string" && COLOR.test(d.color)) n.color = d.color;
+  if (d.side === 1 || d.side === -1) n.side = d.side;
   return n;
 }
 // une idée ne peut pas devenir sa propre descendante

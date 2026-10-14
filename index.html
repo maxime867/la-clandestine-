@@ -19,7 +19,9 @@
 }
 [hidden]{display:none!important}
 html,body{height:100%}
-body{background:var(--paper);color:var(--ink);font-family:var(--ui);overflow:hidden;-webkit-font-smoothing:antialiased}
+body{background:var(--paper);color:var(--ink);font-family:var(--ui);overflow:hidden;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+img,svg{-webkit-user-drag:none}
 button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid #4d7cff;outline-offset:2px}
@@ -30,11 +32,11 @@ button{cursor:pointer}
 #world.smooth{transition:transform .45s cubic-bezier(.2,.8,.2,1)}
 #links{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
 #links path{fill:none;stroke:var(--line);stroke-linecap:round;stroke-linejoin:round;transition:opacity .25s}
-.node{position:absolute;left:0;top:0;transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .25s}
+.node{position:absolute;left:0;top:0;transition:opacity .25s;will-change:transform}
 .box{position:relative;transform:translate(-50%,-50%) rotate(var(--rot,0deg));width:var(--w,190px);min-height:62px;padding:12px 16px;border-radius:30px 26px 32px 24px / 26px 32px 24px 30px;
   background:var(--c);box-shadow:7px 8px 0 var(--sh);display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;
   transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s;font-family:var(--hand);font-size:19px;line-height:1.12;color:var(--ink);word-break:break-word}
-.box:hover{transform:translate(-50%,calc(-50% - 4px)) rotate(var(--rot,0deg));box-shadow:9px 12px 0 var(--sh)}
+@media (hover:hover){.box:hover{transform:translate(-50%,calc(-50% - 4px)) rotate(var(--rot,0deg));box-shadow:9px 12px 0 var(--sh)}}
 .node.l1 .box{min-height:96px;font-size:23px;padding:16px 18px}
 .node.sel .box{outline:3px dashed var(--ink);outline-offset:6px}
 .node.dim{opacity:.22}
@@ -55,12 +57,12 @@ button{cursor:pointer}
 .node.open .tog{min-width:30px;height:30px;margin-top:-15px;padding:0}
 .plus{position:absolute;top:44px;width:30px;height:30px;margin-top:-15px;border-radius:50%;border:2.5px solid var(--ink);background:var(--card);font-family:var(--ui);font-weight:800;font-size:18px;line-height:1;display:grid;place-items:center;opacity:0;transition:opacity .15s,transform .15s}
 .node.right .plus{left:calc(var(--w,190px)/2 + 12px)}.node.left .plus{right:calc(var(--w,190px)/2 + 12px)}
-.node:hover .plus,.node.sel .plus{opacity:1}
+@media (hover:hover){.node:hover .plus{opacity:1}}.node.sel .plus{opacity:1}
 .plus:hover{transform:scale(1.15);background:#ffe27a}
 .peers{position:absolute;left:0;top:0;transform:translate(-50%,-62px);display:flex;gap:3px;pointer-events:none}
 .pchip{font-family:var(--ui);font-size:11px;font-weight:800;border-radius:99px;padding:1px 8px;color:var(--ink);border:2px solid var(--ink);white-space:nowrap}
 .node.root .box{width:250px;height:250px;min-height:0;border-radius:50%;flex-direction:column;gap:6px;background:var(--center);box-shadow:8px 10px 0 #7fb9c6;font-family:var(--marker);font-size:30px;line-height:1}
-.node.root .box:hover{transform:translate(-50%,calc(-50% - 4px))}
+@media (hover:hover){.node.root .box:hover{transform:translate(-50%,calc(-50% - 4px))}}
 .root .pct{font-family:var(--hand);font-size:22px;background:var(--card);border:2.5px solid var(--ink);border-radius:99px;padding:2px 14px}
 .root .sub{font-family:var(--hand);font-size:18px;color:var(--ink2)}
 .root .tap{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--ink2)}
@@ -130,7 +132,7 @@ button{cursor:pointer}
   .search{order:1;flex:1 1 100%}.who{order:2;flex:1;width:auto}.live{order:3;margin-left:0;flex:1;justify-content:center;font-size:12px}
   #zoom{flex-direction:row;align-items:center}#zoom button{width:36px;height:36px}#zoom .z{min-width:40px}
 }
-@media (prefers-reduced-motion:reduce){.node,#world.smooth,.box{transition:none}}
+@media (prefers-reduced-motion:reduce){.node,#world.smooth,.box{transition:none}.node.new .box{animation:none}}
 </style>
 </head>
 <body>
@@ -197,6 +199,7 @@ let myName='';try{myName=localStorage.getItem('narcos-nom')||''}catch(e){}
 async function call(body){const r=await fetch(API,{method:body?'POST':'GET',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});if(!r.ok)throw {code:'http_'+r.status};return r.json()}
 function applyDoc(res){
   if(!res||res.same||!res.nodes)return false;
+  if(typeof res.v==='number'&&res.v<remoteV)return false;
   if(typeof res.v==='number')remoteV=res.v;
   const typing=sel&&(document.activeElement===pT||document.activeElement===pN)?nodes.get(sel):null;
   nodes.clear();for(const id in res.nodes){const n=Object.assign({id},res.nodes[id]);if(typing&&id===sel){if(document.activeElement===pT)n.title=typing.title;if(document.activeElement===pN)n.note=typing.note}nodes.set(id,n)}
@@ -225,19 +228,24 @@ const WID=d=>d===0?250:d===1?220:190;
 let POS=new Map();
 const H=new Map();
 const boxH=id=>H.get(id)||(depthOf(id)===1?100:66);
+/* côté d'une grande branche : celui qu'elle a reçu à sa création, sinon une sur deux */
+const sideOf=(k,i)=>k.side===1||k.side===-1?k.side:(i%2?-1:1);
+/* Disposition stable : chaque idée garde sa place. Les sous-idées s'empilent vers le bas à partir de leur parent,
+   donc ajouter une idée ne décale que ce qui est en dessous d'elle, jamais le reste de la carte. */
 function layout(){
   POS=new Map();POS.set(ROOT,{x:0,y:0,d:0,side:0});
-  const top=kidsOf(ROOT),GAPY=28,GAPB=60,X1=380,DX=275,sub=new Map();
-  const span=id=>{const ks=collapsed.has(id)?[]:kidsOf(id);let s=0;for(const k of ks)s+=span(k.id)+GAPY;s=Math.max(boxH(id),s-GAPY);sub.set(id,s);return s};
+  const top=kidsOf(ROOT),GAPY=24,GAPB=56,X1=380,DX=275,sub=new Map(),lead=new Map();
+  const span=id=>{const ks=collapsed.has(id)?[]:kidsOf(id);if(!ks.length){sub.set(id,boxH(id));return boxH(id)}
+    const l=Math.max(0,(boxH(id)-boxH(ks[0].id))/2);lead.set(id,l);
+    let s=l;for(const k of ks)s+=span(k.id)+GAPY;s=Math.max(boxH(id),s-GAPY);sub.set(id,s);return s};
   top.forEach(k=>span(k.id));
-  const R=[],L=[];let hr=0,hl=0;
-  top.forEach(k=>{if(hr<=hl){R.push(k);hr+=sub.get(k.id)+GAPB}else{L.push(k);hl+=sub.get(k.id)+GAPB}});
-  const placeKids=(id,x,yc,d,side)=>{POS.set(id,{x,y:yc,d,side});
-    const ks=collapsed.has(id)?[]:kidsOf(id);if(!ks.length)return;
-    let tot=ks.reduce((s,k)=>s+sub.get(k.id),0)+GAPY*(ks.length-1),y=yc-tot/2;
-    for(const k of ks){const s=sub.get(k.id);placeKids(k.id,x+side*DX,y+s/2,d+1,side);y+=s+GAPY}};
-  const placeSide=(list,side)=>{const tot=list.reduce((s,k)=>s+sub.get(k.id),0)+GAPB*(list.length-1);let y=-tot/2;
-    for(const k of list){const s=sub.get(k.id);placeKids(k.id,side*X1,y+s/2,1,side);y+=s+GAPB}};
+  const R=[],L=[];top.forEach((k,i)=>(sideOf(k,i)>0?R:L).push(k));
+  const placeKids=(id,x,yTop,d,side)=>{POS.set(id,{x,y:yTop+boxH(id)/2,d,side});
+    const ks=collapsed.has(id)?[]:kidsOf(id);let y=yTop+(lead.get(id)||0);
+    for(const k of ks){placeKids(k.id,x+side*DX,y,d+1,side);y+=sub.get(k.id)+GAPY}};
+  const placeSide=(list,side)=>{// chaque côté commence toujours à la même hauteur : une nouvelle branche se range en dessous sans rien pousser
+    let y=-280;
+    for(const k of list){placeKids(k.id,side*X1,y,1,side);y+=sub.get(k.id)+GAPB}};
   placeSide(R,1);placeSide(L,-1);
   // déplacements faits à la main (glisser-déposer) : une branche emmène toutes ses idées
   const off=id=>{const n=nodes.get(id),d=DRAG.get(id);return d||{ox:(n&&+n.ox)||0,oy:(n&&+n.oy)||0}};
@@ -295,22 +303,39 @@ function build(){
   for(const [id,el] of els)if(!live.has(id)){el.remove();els.delete(id)}
   if(firstRender&&nodes.size)firstRender=false;
 }
+const CUR=new Map();let animRaf=0,animT=0;
+const RM=matchMedia('(prefers-reduced-motion: reduce)');
 function render(){
   build();
   for(const [id,el] of els)if(id!==ROOT){const b=el.querySelector('.box');H.set(id,b.offsetHeight||66)}
   layout();
+  for(const id of [...CUR.keys()])if(!POS.has(id))CUR.delete(id);
+  const instant=new Set();if(drag&&drag.on){instant.add(drag.id);for(const i of descendants(drag.id))instant.add(i)}
+  for(const [id,p] of POS){const c=CUR.get(id);if(!c||instant.has(id)||RM.matches)CUR.set(id,{x:p.x,y:p.y})}
+  for(const [id,el] of els){const p=POS.get(id);if(!p)continue;const pp=id===ROOT?null:POS.get((nodes.get(id)||{}).parent)||POS.get(ROOT),sd=!pp||p.x>=pp.x?1:-1;el.classList.toggle('right',sd>0);el.classList.toggle('left',sd<0)}
+  paint();
+  if(!animRaf)animRaf=requestAnimationFrame(animate);
+  renderPeers();renderStats();renderPanel();
+}
+function paint(){
   let svg='';
-  for(const [id,p] of POS){if(id===ROOT)continue;const n=nodes.get(id);if(!n)continue;const pp=POS.get(n.parent)||POS.get(ROOT);
-    let x1,y1;
-    const sd=p.x>=pp.x?1:-1;
-    if(pp.d===0){const a=Math.max(-.9,Math.min(1.05,Math.atan2(p.y,Math.abs(p.x))));x1=sd*Math.cos(a)*134;y1=Math.sin(a)*134}
-    else{x1=pp.x+sd*(WID(pp.d)/2+(kidsOf(n.parent).length?34:8));y1=pp.y}
-    const x2=p.x-sd*(WID(p.d)/2+12),y2=p.y;
+  for(const [id,p] of POS){if(id===ROOT)continue;const n=nodes.get(id);if(!n)continue;const pid=POS.has(n.parent)?n.parent:ROOT,pp=POS.get(pid);
+    const c=CUR.get(id)||p,cp=CUR.get(pid)||pp;let x1,y1;
+    const sd=c.x>=cp.x?1:-1;
+    if(pp.d===0){const a=Math.max(-.9,Math.min(1.05,Math.atan2(c.y,Math.abs(c.x))));x1=sd*Math.cos(a)*134;y1=Math.sin(a)*134}
+    else{x1=cp.x+sd*(WID(pp.d)/2+(kidsOf(n.parent).length?34:8));y1=cp.y}
+    const x2=c.x-sd*(WID(p.d)/2+12),y2=c.y;
     svg+=arrow(x1,y1,x2,y2,hash(id),p.d===1?3.6:3,(filter||query)&&!matches(n)?' opacity=".2"':'');
   }
   linksEl.innerHTML=svg;
-  for(const [id,el] of els){const p=POS.get(id);if(!p)continue;el.style.transform=`translate(${p.x}px,${p.y}px)`;const pp=id===ROOT?null:POS.get((nodes.get(id)||{}).parent)||POS.get(ROOT),sd=!pp||p.x>=pp.x?1:-1;el.classList.toggle('right',sd>0);el.classList.toggle('left',sd<0)}
-  renderPeers();renderStats();renderPanel();
+  for(const [id,el] of els){const c=CUR.get(id);if(c)el.style.transform=`translate(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px)`}
+}
+function animate(now){
+  const dt=animT?Math.min(50,now-animT):16;animT=now;const k=1-Math.exp(-dt/80);let moving=false;
+  for(const [id,p] of POS){const c=CUR.get(id);if(!c)continue;const dx=p.x-c.x,dy=p.y-c.y;
+    if(Math.abs(dx)+Math.abs(dy)<.4){c.x=p.x;c.y=p.y}else{c.x+=dx*k;c.y+=dy*k;moving=true}}
+  paint();
+  if(moving)animRaf=requestAnimationFrame(animate);else{animRaf=0;animT=0}
 }
 function stats(){let f=0,p=0,r=0,n=0;for(const x of nodes.values()){if(x.id===ROOT)continue;n++;if(x.status==='fait')f++;else if(x.status==='pas')p++;else if(x.status==='reflexion')r++}
   const t=f+p+r;return {f,p,r,n,pct:t?Math.round(f/t*100):0}}
@@ -367,7 +392,8 @@ function addChild(pid){
   if(canWrite===false||!pid)return;
   const ks=kidsOf(pid),o=ks.length?Math.max(...ks.map(k=>k.o||0))+1:0,id=newId();
   const data={parent:pid,title:pid===ROOT?'Nouvelle branche':'Nouvelle idée',note:'',status:pid===ROOT?'':'reflexion',o};
-  if(pid===ROOT){const used=new Set(ks.map(k=>k.color));data.color=PALETTE.find(c=>!used.has(c))||PALETTE[ks.length%PALETTE.length]}
+  if(pid===ROOT){const used=new Set(ks.map(k=>k.color));data.color=PALETTE.find(c=>!used.has(c))||PALETTE[ks.length%PALETTE.length];
+    let r=0,l=0;ks.forEach((k,i)=>sideOf(k,i)>0?r++:l++);data.side=r<=l?1:-1}
   collapsed.delete(pid);saveFold();
   if(pid===ROOT&&!nodes.has(ROOT))write(ROOT,{parent:null,title:'Projet Narcos',note:'',status:'',o:0});
   write(id,data);select(id,true);
@@ -397,7 +423,9 @@ function frame(id){
 }
 function ensureVisible(id){const p=POS.get(id);if(!p)return;const sx=V.x+p.x*V.s,sy=V.y+p.y*V.s,W=innerWidth,Hh=innerHeight,pan=!$('panel').hidden;
   const right=W>640&&pan?370:0,bottom=W<=640&&pan?Hh*.62:0;
-  if(sx<80||sx>W-right-80||sy<110||sy>Hh-bottom-50){V.x+=(W-right)/2-sx;V.y+=(100+Hh-bottom)/2-sy;applyView(true)}}
+  // décalage minimal : on ne recentre pas toute la carte, on la pousse juste assez pour voir l'idée
+  const tx=sx<130?130-sx:sx>W-right-130?W-right-130-sx:0,ty=sy<130?130-sy:sy>Hh-bottom-70?Hh-bottom-70-sy:0;
+  if(tx||ty){V.x+=tx;V.y+=ty;applyView(true)}}
 const ptrs=new Map();let pan=null,pinch=null,moved=false,downEl=null,drag=null,dragRaf=0;
 stage.addEventListener('pointerdown',e=>{ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;
   if(ptrs.size===1){downEl=e.target;const bx=e.target.closest('.box'),nd=bx&&bx.closest('.node');
@@ -428,6 +456,7 @@ function endDrag(cancel){
   const o=DRAG.get(d.id);DRAG.delete(d.id);
   if(d.target){const pid=d.target,ks=kidsOf(pid).filter(k=>k.id!==d.id),data={parent:pid,ox:0,oy:0,o:ks.length?Math.max(...ks.map(k=>k.o||0))+1:0};
     if(pid===ROOT&&!(nodes.get(d.id)||{}).color){const used=new Set(ks.map(k=>k.color));data.color=PALETTE.find(c=>!used.has(c))||PALETTE[0]}
+    if(pid===ROOT){const p=POS.get(d.id);data.side=p&&p.x<0?-1:1}
     collapsed.delete(pid);saveFold();write(d.id,data);toast('Idée rangée dans « '+(pid===ROOT?'le centre':(nodes.get(pid)||{}).title||'')+' ».')}
   else if(o)write(d.id,{ox:Math.round(o.ox),oy:Math.round(o.oy)});
 }
@@ -513,6 +542,9 @@ async function start(){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll(true)});
   setInterval(ping,10000);
 }
+/* pas de sélection de texte sur la carte (seulement dans les champs) */
+document.addEventListener('selectstart',e=>{const t=e.target&&(e.target.closest?e.target:e.target.parentElement);if(!t||!t.closest('input,textarea'))e.preventDefault()});
+document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('#stage'))e.preventDefault()});
 if(document.fonts)document.fonts.ready.then(()=>{H.clear();render()});
 start();
 })();
