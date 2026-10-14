@@ -59,7 +59,7 @@ export default async (req) => {
   }
   if (req.method !== "POST") return json({ error: "méthode non prise en charge" }, 405);
   const raw = await req.text();
-  if (raw.length > 20000) return json({ error: "trop gros" }, 413);
+  if (raw.length > 400000) return json({ error: "trop gros" }, 413);
   let b; try { b = JSON.parse(raw); } catch { return json({ error: "JSON invalide" }, 400); }
 
   if (b.op === "ping") {
@@ -81,6 +81,13 @@ export default async (req) => {
       const n = clean(b.id, b.data);
       if (n.parent && (n.parent === b.id || makesCycle(doc.nodes, b.id, n.parent))) return json({ error: "déplacement impossible" }, 400);
       doc.nodes[b.id] = n;
+    } else if (b.op === "put") {
+      // plusieurs idées d'un coup (annuler / rétablir une suppression ou un déplacement)
+      const src = b.nodes && typeof b.nodes === "object" && !Array.isArray(b.nodes) ? b.nodes : null;
+      if (!src) return json({ error: "idées invalides" }, 400);
+      const ids = Object.keys(src).filter(i => ID.test(i) && src[i] && typeof src[i] === "object").slice(0, MAX_NODES);
+      for (const i of ids) { if (!doc.nodes[i] && Object.keys(doc.nodes).length >= MAX_NODES) return json({ error: "carte pleine" }, 409); doc.nodes[i] = clean(i, src[i]); }
+      for (const i of ids) { const pa = doc.nodes[i].parent; if (pa && (pa === i || makesCycle(doc.nodes, i, pa))) return json({ error: "déplacement impossible" }, 400); }
     } else if (b.op === "del") {
       const ids = Array.isArray(b.ids) ? b.ids.filter(i => typeof i === "string" && ID.test(i) && i !== "root") : [];
       // retirer aussi tout ce qui était rangé dessous

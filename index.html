@@ -35,7 +35,7 @@ button{cursor:pointer}
 .node{position:absolute;left:0;top:0;transition:opacity .25s;will-change:transform}
 .box{position:relative;transform:translate(-50%,-50%) rotate(var(--rot,0deg));width:var(--w,190px);min-height:62px;padding:12px 16px;border-radius:30px 26px 32px 24px / 26px 32px 24px 30px;
   background:var(--c);box-shadow:7px 8px 0 var(--sh);display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;
-  transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s;font-family:var(--hand);font-size:19px;line-height:1.12;color:var(--ink);word-break:break-word}
+  transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s;font-family:var(--hand);font-size:19px;line-height:1.12;color:var(--tc,var(--ink));word-break:break-word}
 @media (hover:hover){.box:hover{transform:translate(-50%,calc(-50% - 4px)) rotate(var(--rot,0deg));box-shadow:9px 12px 0 var(--sh)}}
 .node.l1 .box{min-height:96px;font-size:23px;padding:16px 18px}
 .node.sel .box{outline:3px dashed var(--ink);outline-offset:6px}
@@ -93,10 +93,17 @@ button{cursor:pointer}
 #zoom button{width:40px;height:40px;border:0;border-radius:11px;background:none;font-size:20px;font-weight:800}
 #zoom button:hover{background:#fff5cc}
 #zoom .z{font-size:11px;text-align:center;font-weight:800;color:var(--ink2);font-variant-numeric:tabular-nums}
+#hist{position:fixed;z-index:5;left:calc(max(12px,env(safe-area-inset-left,0px)) + 62px);bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:4px;padding:5px;border-radius:16px}
+#hist button{display:flex;align-items:center;gap:6px;height:40px;border:0;border-radius:11px;background:none;padding:0 12px;font-weight:800;font-size:14px}
+#hist button b{font-size:20px;line-height:1}
+#hist button:hover:not(:disabled){background:#fff5cc}
+#hist button:disabled{opacity:.3;cursor:default}
 .hint{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:7px 14px;font-size:13px;font-weight:700;color:var(--ink2);white-space:nowrap;border-radius:99px}
 #panel{position:fixed;z-index:6;top:calc(78px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:min(350px,calc(100% - 24px));max-height:calc(100% - 100px);overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;border-radius:24px;box-shadow:7px 8px 0 rgba(31,29,36,.2)}
 .ph{display:flex;align-items:center;gap:8px}
 .crumb{flex:1;min-width:0;font-size:12px;font-weight:800;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pundo{height:34px;border-radius:99px;border:2px solid var(--ink);background:var(--card);font-weight:800;font-size:13px;padding:0 12px}
+.pundo:disabled{opacity:.3;cursor:default}
 .x{width:34px;height:34px;border-radius:50%;border:2px solid var(--ink);background:var(--card);font-weight:800}
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:12px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em}
@@ -108,9 +115,13 @@ button{cursor:pointer}
 .seg button{display:flex;align-items:center;justify-content:center;gap:7px;border:2.5px solid var(--ink);background:var(--card);border-radius:14px;padding:8px;font-weight:800;font-size:13.5px}
 .seg button i{width:18px;height:18px;border-radius:50%;border:2px solid var(--ink);background:var(--c);font-style:normal;font-size:10px;color:#fff;display:grid;place-items:center}
 .seg button[aria-pressed="true"]{background:var(--c);box-shadow:3px 4px 0 var(--ink)}
-.sw{display:flex;flex-wrap:wrap;gap:8px}
-.sw button{width:32px;height:32px;border-radius:50%;border:2.5px solid var(--ink);background:var(--c)}
-.sw button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--card),0 0 0 6px var(--ink)}
+.sw{display:flex;flex-wrap:wrap;gap:7px}
+.sw button,.sw .custom{width:29px;height:29px;border-radius:50%;border:2.5px solid var(--ink);background:var(--c);padding:0;flex:none}
+.sw button[aria-pressed="true"],.sw .custom.on{box-shadow:0 0 0 3px var(--card),0 0 0 6px var(--ink)}
+.sw .same{width:auto;border-radius:99px;padding:0 10px;font-size:12px;font-weight:800;background:var(--card)}
+.sw .custom{position:relative;display:grid;place-items:center;cursor:pointer;background:conic-gradient(#ff6b6b,#ffd43b,#69db7c,#3bc9db,#4dabf7,#9775fa,#f783ac,#ff6b6b);overflow:hidden}
+.sw .custom span{font-weight:800;font-size:16px;line-height:1;color:var(--ink);background:#fff;border-radius:50%;width:17px;height:17px;display:grid;place-items:center}
+.sw .custom input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
 .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .btn{border:2.5px solid var(--ink);border-radius:14px;padding:10px;font-weight:800;font-size:13.5px;background:var(--card);box-shadow:3px 4px 0 rgba(31,29,36,.22)}
 .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(31,29,36,.22)}
@@ -127,11 +138,13 @@ button{cursor:pointer}
   .search{order:2;max-width:none}.live{order:1}.brand{font-size:17px}
   #panel{top:auto;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));width:auto;max-height:60%}
   .hint{display:none}
+  #hist{left:max(12px,env(safe-area-inset-left,0px));bottom:calc(66px + env(safe-area-inset-bottom,0px))}#hist button{height:36px;padding:0 10px;font-size:13px}
   .brand{display:none}
   .stats{order:2;width:auto}.stat .lbl{display:none}.stat{flex:none;padding:5px 8px;font-size:14px}
   .search{order:1;flex:1 1 100%}.who{order:2;flex:1;width:auto}.live{order:3;margin-left:0;flex:1;justify-content:center;font-size:12px}
   #zoom{flex-direction:row;align-items:center}#zoom button{width:36px;height:36px}#zoom .z{min-width:40px}
 }
+@media (max-width:1180px){.hint{display:none}}
 @media (prefers-reduced-motion:reduce){.node,#world.smooth,.box{transition:none}.node.new .box{animation:none}}
 </style>
 </head>
@@ -156,10 +169,14 @@ button{cursor:pointer}
 <div id="zoom" class="pill">
   <button id="zin" aria-label="Zoomer">+</button><div class="z" id="zval">100 %</div><button id="zout" aria-label="Dézoomer">−</button><button id="zfit" aria-label="Tout voir" title="Tout voir">⤢</button>
 </div>
+<div id="hist" class="pill" role="group" aria-label="Historique">
+  <button id="undo" disabled title="Annuler ma dernière modification (Ctrl+Z)"><b aria-hidden="true">↶</b>Annuler</button>
+  <button id="redo" disabled title="Rétablir (Ctrl+Maj+Z)"><b aria-hidden="true">↷</b>Rétablir</button>
+</div>
 <div class="hint pill"><b>+5</b> montre les idées · clique pour modifier · <b>glisse une boîte</b> pour la déplacer, lâche-la sur une autre pour l’y ranger</div>
 
 <aside id="panel" class="pill" hidden aria-label="Modifier l’idée">
-  <div class="ph"><span class="crumb" id="crumb"></span><button class="x" id="pclose" aria-label="Fermer">✕</button></div>
+  <div class="ph"><span class="crumb" id="crumb"></span><button class="pundo" id="pundo" disabled title="Annuler ma dernière modification">↶ Annuler</button><button class="x" id="pclose" aria-label="Fermer">✕</button></div>
   <p class="ro" id="ro" hidden>Lecture seule : pour modifier, demande au propriétaire de te partager la carte en Contributeur ou Éditeur.</p>
   <div class="field"><label for="ptitle">Idée</label><input id="ptitle" maxlength="80" autocomplete="off"></div>
   <div class="field" id="statusField"><label>Où on en est</label>
@@ -169,7 +186,7 @@ button{cursor:pointer}
       <button data-s="reflexion" style="--c:var(--reflexion)" aria-pressed="false"><i>?</i>À réfléchir</button>
       <button data-s="" style="--c:#ffffff" aria-pressed="false"><i style="color:var(--ink)">·</i>Sans statut</button>
     </div></div>
-  <div class="field" id="colorField"><label>Couleur de la branche</label><div class="sw" id="sw"></div></div>
+  <div class="field" id="colorField"><label id="colorLbl">Couleur de la branche</label><div class="sw" id="sw"></div></div>
   <div class="field"><label for="pnote">Détails</label><textarea id="pnote" maxlength="2000" placeholder="Précisions, qui s’en occupe…"></textarea></div>
   <div class="acts">
     <button class="btn main" id="addChild">+ Sous-idée</button>
@@ -186,7 +203,10 @@ button{cursor:pointer}
 <script>
 (()=>{
 const $=id=>document.getElementById(id);
-const PALETTE=['#bfc3e6','#8ecdb3','#7a83c4','#ffcc5c','#a8dce6','#f7a8c4','#f5a878','#e3a6cf','#f19a98','#a6dcd6'];
+const PALETTE=['#bfc3e6','#8ecdb3','#7a83c4','#ffcc5c','#a8dce6','#f7a8c4','#f5a878','#e3a6cf','#f19a98','#a6dcd6',
+  '#ff6b6b','#ff8fab','#ffa94d','#ffd43b','#fff3a3','#c0eb75','#69db7c','#63e6be','#3bc9db','#74c0fc','#4dabf7','#9775fa','#d0bfff','#e599f7','#c8a27a','#ced4da'];
+const HEX=/^#[0-9a-fA-F]{6}$/;
+const lum=h=>{const c=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);return .2126*c[0]+.7152*c[1]+.0722*c[2]};
 const ST={fait:{hex:'#3fbf7f',sym:'✓',label:'Fait'},pas:{hex:'#ef5b6b',sym:'✕',label:'Pas fait'},reflexion:{hex:'#f5b82e',sym:'?',label:'À réfléchir'}};
 const ROOT='root';
 /* ---------- état ---------- */
@@ -218,7 +238,7 @@ const rootNode=()=>nodes.get(ROOT)||{id:ROOT,parent:null,title:'Projet Narcos',n
 const kidsOf=id=>[...nodes.values()].filter(n=>n.parent===id).sort((a,b)=>(a.o||0)-(b.o||0)||(a.t||0)-(b.t||0));
 function depthOf(id){let d=0,n=id===ROOT?rootNode():nodes.get(id);while(n&&n.parent&&d<50){d++;n=n.parent===ROOT?rootNode():nodes.get(n.parent)}return d}
 function branchOf(id){let n=nodes.get(id);while(n&&n.parent&&n.parent!==ROOT){const p=nodes.get(n.parent);if(!p)break;n=p}return n}
-function colorOf(id){if(id===ROOT)return '#a6dbe6';const b=branchOf(id);if(b&&b.color&&PALETTE.includes(b.color))return b.color;const i=kidsOf(ROOT).findIndex(k=>k.id===(b&&b.id));return PALETTE[Math.max(0,i)%PALETTE.length]}
+function colorOf(id){if(id===ROOT)return '#a6dbe6';const b=branchOf(id);if(b&&b.color&&HEX.test(b.color))return b.color;const i=kidsOf(ROOT).findIndex(k=>k.id===(b&&b.id));return PALETTE[Math.max(0,i)%PALETTE.length]}
 function mix(hex,w,t){const h=hex.replace('#','');const c=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)),k=w==='white'?255:20;return '#'+c.map(v=>Math.round(v+(k-v)*t).toString(16).padStart(2,'0')).join('')}
 function descendants(id){const out=[];const walk=i=>{for(const k of kidsOf(i)){out.push(k.id);walk(k.id)}};walk(id);return out}
 const newId=()=>'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -283,8 +303,8 @@ function build(){
       el.querySelector('textPath').textContent=(n.title||'Projet Narcos').toUpperCase();
       const s=stats();const h=`<span class="pct">${s.pct} % fait</span><span class="sub">${s.n} idée${s.n>1?'s':''}</span><span class="tap">clique pour modifier</span>`;if(box.dataset.h!==h){box.innerHTML=h;box.dataset.h=h}
     }else{
-      const base=colorOf(n.id),col=d===1?base:mix(base,'white',.4);
-      el.style.setProperty('--c',col);el.style.setProperty('--sh',mix(base,'dark',.25)+'70');
+      const base=colorOf(n.id),own=d>1&&HEX.test(n.color||'')?n.color:null,col=d===1?base:own||mix(base,'white',.4);
+      el.style.setProperty('--c',col);el.style.setProperty('--sh',mix(own||base,'dark',.25)+'70');el.style.setProperty('--tc',lum(col)<.42?'#ffffff':'#1f1d24');
       el.style.setProperty('--rot',(((hash(n.id)%5)-2)*.6)+'deg');el.style.setProperty('--w',WID(d)+'px');
       const st=ST[n.status];
       const h=(st?`<span class="badge" style="background:${st.hex}" title="${st.label}">${st.sym}</span>`:'')+'<span class="t"></span>';
@@ -354,8 +374,13 @@ function renderPanel(){
   if(document.activeElement!==pN&&pN.value!==(n.note||''))pN.value=n.note||'';
   $('statusField').hidden=sel===ROOT;
   document.querySelectorAll('#seg button').forEach(b=>b.setAttribute('aria-pressed',String((n.status||'')===b.dataset.s)));
-  $('colorField').hidden=d!==1;
-  if(d===1){const cur=colorOf(sel),h=PALETTE.map(c=>`<button data-c="${c}" style="--c:${c}" aria-label="Couleur" aria-pressed="${c===cur}"></button>`).join('');if($('sw').dataset.h!==h){$('sw').innerHTML=h;$('sw').dataset.h=h}}
+  $('colorField').hidden=sel===ROOT;
+  if(sel!==ROOT){const cur=d===1?colorOf(sel):(HEX.test(n.color||'')?n.color:''),inPal=!cur||PALETTE.includes(cur);
+    $('colorLbl').textContent=d===1?'Couleur de la branche':'Couleur de l’idée';
+    const h=(d>1?`<button class="same" data-c="" aria-pressed="${!cur}" title="Même couleur que la branche">Comme la branche</button>`:'')
+      +PALETTE.map(c=>`<button data-c="${c}" style="--c:${c}" aria-label="Couleur ${c}" aria-pressed="${c===cur}"></button>`).join('')
+      +`<label class="custom${inPal?'':' on'}" title="Choisir n’importe quelle couleur"${inPal?'':` style="background:${cur}"`}><span>+</span><input type="color" value="${cur||'#ffcc5c'}" aria-label="Autre couleur"></label>`;
+    if($('sw').dataset.h!==h){$('sw').innerHTML=h;$('sw').dataset.h=h}}
   $('addChild').textContent=sel===ROOT?'+ Nouvelle branche':'+ Sous-idée';
   $('addSib').hidden=sel===ROOT;$('del').hidden=sel===ROOT;$('reset').hidden=!(n.ox||n.oy);$('reset').disabled=canWrite===false;
   $('fold').hidden=sel===ROOT||!kidsOf(sel).length;$('fold').textContent=collapsed.has(sel)?`Déplier (${descendants(sel).length})`:'Replier';
@@ -372,17 +397,51 @@ function since(t){const s=Math.max(0,(Date.now()-t)/1000);if(s<60)return 'à l�
 const pending=new Map();let busy=0;
 function setLive(){const l=$('live'),t=$('liveTxt');l.classList.toggle('off',mode!=='live');l.classList.toggle('err',mode==='err');
   t.textContent=mode==='live'?(canWrite===false?'En direct · lecture seule':busy?'Enregistrement…':'En direct · enregistré'):mode==='local'?'Hors ligne : enregistré sur cet appareil':mode==='err'?'Pas enregistré, réessaie':'Connexion…'}
-async function write(id,data){
+/* ---------- annuler / rétablir (mes propres modifications, jusqu'à 100) ---------- */
+const UNDO=[],REDO=[];
+const snap=id=>{const n=nodes.get(id)||(id===ROOT?rootNode():null);if(!n)return null;const c=Object.assign({},n);delete c.id;return c};
+const LBL={title:'le texte',note:'les détails',status:'le statut',color:'la couleur',ox:'le déplacement',oy:'le déplacement',parent:'le rangement'};
+function record(items,label,tag){const last=UNDO[UNDO.length-1],now=Date.now();
+  if(tag&&last&&last.tag===tag&&now-last.at<3000)last.at=now; // une frappe continue = une seule étape
+  else{UNDO.push({items,label,tag,at:now});if(UNDO.length>100)UNDO.shift()}
+  REDO.length=0;updHist()}
+function updHist(){$('undo').disabled=$('pundo').disabled=!UNDO.length||histBusy;$('redo').disabled=!REDO.length;
+  $('undo').title=UNDO.length?'Annuler '+UNDO[UNDO.length-1].label+' (Ctrl+Z)':'Rien à annuler';$('redo').title=REDO.length?'Rétablir '+REDO[REDO.length-1].label+' (Ctrl+Maj+Z)':'Rien à rétablir'}
+async function applyEntry(e){
+  const inv=[],puts={},dels=[];
+  for(const it of e.items){
+    if(it.before){inv.push({id:it.id,before:snap(it.id)});puts[it.id]=Object.assign({},it.before,{by:myName||null,t:Date.now()})}
+    else if(nodes.has(it.id)&&!dels.includes(it.id))for(const i of [it.id,...descendants(it.id)])if(!dels.includes(i)){inv.push({id:i,before:snap(i)});dels.push(i)}
+  }
+  for(const i of dels)nodes.delete(i);for(const id in puts)nodes.set(id,Object.assign({id},puts[id]));
+  for(const id in puts){let p=puts[id].parent;while(p&&p!==ROOT){collapsed.delete(p);p=(nodes.get(p)||{}).parent}}
+  if(dels.includes(sel))sel=null;render();
+  if(!api){persistLocal();return inv}
+  busy++;inflight++;setLive();
+  try{let r=null;if(dels.length)r=await call({op:'del',ids:dels,c:CID});if(Object.keys(puts).length)r=await call({op:'put',nodes:puts,c:CID});inflight--;if(!inflight&&!pending.size&&r&&applyDoc(r))render()}
+  catch(err){inflight--;handleErr(err)}finally{busy--;setLive()}
+  return inv}
+let histBusy=false;
+async function undo(){if(histBusy||!UNDO.length||canWrite===false)return;flushAll();const e=UNDO.pop();histBusy=true;updHist();
+  try{const inv=await applyEntry(e);REDO.push({items:inv,label:e.label});toast('Annulé : '+e.label+'.')}finally{histBusy=false;updHist()}}
+async function redo(){if(histBusy||!REDO.length||canWrite===false)return;flushAll();const e=REDO.pop();histBusy=true;updHist();
+  try{const inv=await applyEntry(e);UNDO.push({items:inv,label:e.label,at:0});toast('Rétabli : '+e.label+'.')}finally{histBusy=false;updHist()}}
+async function write(id,data,opt){
+  opt=opt||{};
   const cur=nodes.get(id)||(id===ROOT?rootNode():null);
+  if(!opt.noUndo){const before='before' in opt?opt.before:snap(id),ks=Object.keys(data);
+    record([{id,before}],before?(LBL[ks.find(k=>LBL[k])]||'la modification'):'l’ajout',ks.length===1&&(ks[0]==='title'||ks[0]==='note')?id+'|'+ks[0]:null)}
   const body=Object.assign({},cur||{},data,{by:myName||null,t:Date.now()});delete body.id;
   nodes.set(id,Object.assign({id},body));render();
   if(!api){persistLocal();return}
   busy++;inflight++;setLive();try{const r=await call({op:'set',id,data:body,c:CID});inflight--;if(!inflight&&!pending.size&&applyDoc(r))render()}catch(e){inflight--;handleErr(e)}finally{busy--;setLive()}
 }
-function debounced(id,field,val){const k=id+'|'+field;clearTimeout(pending.get(k));const n=nodes.get(id);if(n)n[field]=val;
-  pending.set(k,setTimeout(()=>{pending.delete(k);write(id,{[field]:val})},450))}
+const pendSnap=new Map();
+function debounced(id,field,val){const k=id+'|'+field;clearTimeout(pending.get(k));if(!pendSnap.has(k))pendSnap.set(k,snap(id));const n=nodes.get(id);if(n)n[field]=val;
+  pending.set(k,setTimeout(()=>{pending.delete(k);const b=pendSnap.get(k);pendSnap.delete(k);write(id,{[field]:val},{before:b})},450))}
+function flushAll(){for(const [k,t] of [...pending]){clearTimeout(t);pending.delete(k);const [id,f]=k.split('|'),n=nodes.get(id),b=pendSnap.get(k);pendSnap.delete(k);if(n)write(id,{[f]:n[f]},{before:b})}}
 async function remove(id){
-  const ids=[...descendants(id),id];for(const i of ids)nodes.delete(i);if(ids.includes(sel))sel=null;render();
+  const ids=[...descendants(id),id];record([id,...descendants(id)].map(i=>({id:i,before:snap(i)})),'la suppression');for(const i of ids)nodes.delete(i);if(ids.includes(sel))sel=null;render();
   if(!api){persistLocal();return}
   busy++;inflight++;setLive();try{const r=await call({op:'del',ids,c:CID});inflight--;if(!inflight&&!pending.size&&applyDoc(r))render()}catch(e){inflight--;handleErr(e)}finally{busy--;setLive()}
 }
@@ -395,7 +454,7 @@ function addChild(pid){
   if(pid===ROOT){const used=new Set(ks.map(k=>k.color));data.color=PALETTE.find(c=>!used.has(c))||PALETTE[ks.length%PALETTE.length];
     let r=0,l=0;ks.forEach((k,i)=>sideOf(k,i)>0?r++:l++);data.side=r<=l?1:-1}
   collapsed.delete(pid);saveFold();
-  if(pid===ROOT&&!nodes.has(ROOT))write(ROOT,{parent:null,title:'Projet Narcos',note:'',status:'',o:0});
+  if(pid===ROOT&&!nodes.has(ROOT))write(ROOT,{parent:null,title:'Projet Narcos',note:'',status:'',o:0},{noUndo:true});
   write(id,data);select(id,true);
 }
 function addSibling(id){const n=nodes.get(id);if(n&&n.parent)addChild(n.parent)}
@@ -476,19 +535,22 @@ stage.addEventListener('keydown',e=>{const n=e.target.closest('.node');if(n&&(e.
 $('zin').onclick=()=>zoomAt(1.25,innerWidth/2,innerHeight/2,true);
 $('zout').onclick=()=>zoomAt(.8,innerWidth/2,innerHeight/2,true);
 $('zfit').onclick=()=>fit(true);
+$('undo').onclick=undo;$('pundo').onclick=undo;$('redo').onclick=redo;
 addEventListener('keydown',e=>{const typing=e.target.matches('input,textarea');
   if(e.key==='Escape'&&drag){endDrag(true);return}
   if(e.key==='Escape'){if(typing)e.target.blur();sel=null;confirmDel=false;render();return}
+  if((e.ctrlKey||e.metaKey)&&!typing){const k=e.key.toLowerCase();if(k==='z'){e.preventDefault();e.shiftKey?redo():undo();return}if(k==='y'){e.preventDefault();redo();return}}
   if(!sel||canWrite===false)return;
   if(e.key==='Tab'&&(!typing||e.target===pT)){e.preventDefault();flushTitle();addChild(sel);return}
   if(e.key==='Enter'&&e.target===pT){e.preventDefault();flushTitle();if(sel!==ROOT)addSibling(sel);return}
   if((e.key==='Delete'||e.key==='Backspace')&&!typing&&sel!==ROOT){e.preventDefault();askDelete()}});
-function flushTitle(){if(!sel)return;const k=sel+'|title';if(pending.has(k)){clearTimeout(pending.get(k));pending.delete(k);write(sel,{title:pT.value.trim()||'Nouvelle idée'})}}
+function flushTitle(){if(!sel)return;const k=sel+'|title';if(pending.has(k)){clearTimeout(pending.get(k));pending.delete(k);const b=pendSnap.get(k);pendSnap.delete(k);write(sel,{title:pT.value.trim()||'Nouvelle idée'},{before:b})}}
 pT.addEventListener('input',()=>{if(sel&&canWrite!==false)debounced(sel,'title',pT.value)});
 pT.addEventListener('blur',flushTitle);
 pN.addEventListener('input',()=>{if(sel&&canWrite!==false)debounced(sel,'note',pN.value)});
 $('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&sel&&canWrite!==false)write(sel,{status:b.dataset.s})});
 $('sw').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&sel&&canWrite!==false)write(sel,{color:b.dataset.c})});
+$('sw').addEventListener('change',e=>{if(e.target.type==='color'&&sel&&canWrite!==false&&HEX.test(e.target.value))write(sel,{color:e.target.value.toLowerCase()})});
 $('addChild').onclick=()=>{flushTitle();addChild(sel)};
 $('addSib').onclick=()=>{flushTitle();addSibling(sel)};
 $('reset').onclick=()=>{if(sel)write(sel,{ox:0,oy:0})};
