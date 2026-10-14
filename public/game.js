@@ -26,12 +26,19 @@ const DIS={
   cite:{name:'Les Jardins',sx:-1,sz:1,col:'#8fbf4a'},
   vieux:{name:'Le Vieux Centre',sx:1,sz:1,col:'#e08a3a'},
 };
+/* Deux quartiers séparés par la rivière : le Sud, où tu travailles pour El Refe, et le Nord, tenu par le gang de Madame Vega. */
 const BOSSES={
-  tonton:{id:'tonton',name:'Papa Léon',col:'#9acd32',cn:'vert',sector:'cite',style:'Vieux jardinier, mains calleuses, parle peu.'},
-  baron:{id:'baron',name:'Le Baron',col:'#5b8def',cn:'bleu',sector:'tours',style:'Costard, voix posée, jamais pressé.'},
-  momo:{id:'momo',name:'Momo',col:'#2fb5a5',cn:'turquoise',sector:'port',style:'Parle fort, rit fort, n’oublie rien.'},
-  vega:{id:'vega',name:'Madame Vega',col:'#e08a3a',cn:'orange',sector:'vieux',style:'Calme, froide, déjà trois coups d’avance.'},
+  refe:{id:'refe',name:'El Refe',col:'#e0b020',cn:'doré',sector:'sud',style:'Il tient le Sud depuis vingt ans. Dents en or, mémoire d’éléphant.'},
+  vega:{id:'vega',name:'Madame Vega',col:'#e08a3a',cn:'orange',sector:'nord',style:'La patronne du Nord. Calme, froide, déjà trois coups d’avance.'},
 };
+const QD={nord:{key:'nord',name:'Quartier Nord',col:'#e08a3a',cx:-40,cz:-420},sud:{key:'sud',name:'Quartier Sud',col:'#e0b020',cx:-20,cz:260}};
+const QKEYS=['nord','sud'];
+let _rz=null;
+function riverZ(x){
+  if(!_rz){_rz=[];const P=RIVER.pts;for(let xi=-620;xi<=620;xi+=10){let best=null;for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1];if((a[0]-xi)*(b[0]-xi)<=0&&a[0]!==b[0]){best=a[1]+(b[1]-a[1])*(xi-a[0])/(b[0]-a[0]);break}}_rz.push(best==null?-150:best)}}
+  return _rz[clamp(Math.round((x+620)/10),0,_rz.length-1)];
+}
+const quarterAt=(x,z)=>z<riverZ(x)?QD.nord:QD.sud;
 const BIDS=Object.keys(BOSSES);
 const GOAL=10000000,MAXSTRIKES=3;
 for(const k in DIS)DIS[k]={...DEFD,...DIS[k],key:k};
@@ -183,17 +190,15 @@ const CAN_MAX=8;
 const newG=(home='cite')=>({v:5,home,story:{q:'intro',cut:0,dead:0,paid:0,f:{}},inv:{},look:{},began:0,cash:150,bank:0,heat:0,hp:100,strikes:0,strikeT:0,t:0,sel:'jardin',
   seeds:{jardin:5},raw:{},stock:{},lv:{},unlocked:{jardin:1,skunk:1},owned:{foot:1},veh:'foot',earned:0,can:CAN_MAX,deliv:[],
   lab:{items:[{id:'pot',d:5.2,s:-1.5,pl:null},{id:'pot',d:5.2,s:.5,pl:null},{id:'sechoir',d:4.2,s:4.4,pl:null}],store:{}},bag:{lv:0,p:{},it:{}},
-  rel:{baron:0,momo:0,vega:0,tonton:0},ally:{},
-  retired:Object.fromEntries(BIDS.filter(b=>BOSSES[b].sector===home).map(b=>[b,1])),
-  own:Object.fromEntries(DKEYS.map(k=>[k,k===home?'you':BIDS.find(b=>BOSSES[b].sector===k)]))});
+  rel:{refe:20,vega:0},ally:{refe:.0001},retired:{},own:{nord:'vega',sud:'you'},clean:0,biz:{},laund:0});
 /* anciennes sauvegardes : v4 (2D, pots dans un menu) → v5 (labo en 3D) */
 function migrate(g){
   g.home=g.home||'cite';g.inv=g.inv||{};g.look=g.look||{};g.bank=g.bank||0;g.lv=g.lv||{};g.owned=g.owned||{foot:1};g.unlocked=g.unlocked||{jardin:1,skunk:1};
   g.rel=g.rel||{};g.ally=g.ally||{};g.retired=g.retired||{};g.own=g.own||{};
+  // ancienne carte à quatre secteurs : on passe aux deux quartiers, le labo est dans le Sud
+  if(!g.own||!('nord' in g.own)){g.own={nord:'vega',sud:'you'};g.rel={refe:20,vega:0};g.ally={refe:.0001};g.retired={};g.home='cite'}
   for(const id of BIDS)g.rel[id]=clamp(g.rel[id]||0,-100,100);
-  for(const k of DKEYS)if(!g.own[k])g.own[k]=BIDS.find(b=>BOSSES[b].sector===k);
-  g.own[g.home]='you';
-  const hb=BIDS.find(b=>BOSSES[b].sector===g.home);if(hb)g.retired[hb]=1;
+  g.clean=Math.max(0,+g.clean||0);g.biz=g.biz&&typeof g.biz==='object'?g.biz:{};g.laund=+g.laund||0;
   if(g.v===4){
     const old=Array.isArray(g.pots)?g.pots:[];
     g.v=5;g.seeds={};g.raw={};g.lab={items:[],store:{}};
@@ -232,14 +237,14 @@ if(!G||(G.v!==4&&G.v!==5)||typeof G.cash!=='number')G=newG();else migrate(G);
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
 const lv=id=>G.lv[id]||0;
 const inv=id=>(G.inv&&G.inv[id])||0;
-const H=()=>DIS[G.home||'cite'];
-const ownerOf=(x,z)=>G.own[districtAt(x,z).key];
-const mySectors=()=>DKEYS.filter(k=>G.own[k]==='you').length;
+const HOMEP={...DEFD};const H=()=>HOMEP;
+const ownerOf=(x,z)=>G.own[quarterAt(x,z).key];
+const mySectors=()=>QKEYS.filter(k=>G.own[k]==='you').length;
 const stance=id=>G.ally[id]?'ally':(G.rel[id]||0)<=-50?'war':(G.rel[id]||0)<=-15?'hostile':'neutral';
 const addRel=(id,n)=>{
   const s0=stance(id);G.rel[id]=clamp((G.rel[id]||0)+n,-100,100);const s1=stance(id);
   if(s0===s1||G.retired[id])return;
-  const b=BOSSES[id],sec=DIS[b.sector].name;
+  const b=BOSSES[id],sec=QD[b.sector].name;
   if(s1==='war')toast(`${b.name} te déclare la guerre. Ses hommes te tireront dessus partout dans le quartier.`,'bad');
   else if(s1==='hostile'&&s0!=='war')toast(`${b.name} ne t’aime pas. Ses hommes te chasseront dans ${sec}.`,'bad');
   else if(s1==='hostile')toast(`${b.name} se calme un peu, mais évite ${sec}.`);
@@ -1132,7 +1137,7 @@ function drawHUDLayer(now){
     ctx.globalAlpha=a;ctx.font=`700 ${f.big?24:17}px "Work Sans",sans-serif`;ctx.textAlign='center';
     ctx.lineWidth=4;ctx.strokeStyle='rgba(20,12,8,.9)';ctx.strokeText(f.txt,s[0],s[1]);ctx.fillStyle=f.col;ctx.fillText(f.txt,s[0],s[1]);ctx.globalAlpha=1;
   }
-  if(started){
+  if(started&&!INT){
     if(WP)edgeMark(WP.x,WP.z,'#7fd1ff',Math.round(Math.hypot(WP.x-P.x,WP.z-P.z))+' m · '+WP.label);
     if(M)edgeMark(M.dest.x,M.dest.z,'#ff7a1a',Math.round(Math.hypot(M.dest.x-P.x,M.dest.z-P.z))+' m');
     if(meetCar)edgeMark(meetCar.x,meetCar.z,BOSSES[meetCar.boss].col,BOSSES[meetCar.boss].name);
@@ -1251,6 +1256,7 @@ function render(now){
   LIGHTS.length=0;
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#120e0d';ctx.fillRect(0,0,cv.width,cv.height);
   ctx.setTransform(DPR*z,0,0,DPR*z,DPR*(VW/2-RC.x*z),DPR*(VH/2-RC.z*z));
+  if(INT){drawInterior(now);ctx.setTransform(DPR,0,0,DPR,0,0);drawHUDLayer(now);return}
   drawGround(now);
   const LABIN=started&&P.def.kind==='foot'&&inLab();
   if(LABIN)drawLabInside(now);drawLabDoor(now);
@@ -1289,6 +1295,7 @@ function render(now){
   // piétons, clients
   for(const p of peds)drawHuman(p.x,p.z,p.th,p.look,p.ph,p.hold>0||p.ko>0?0:p.sp,HS,p.ko>0?'ko':undefined);
   drawCityNPC(now/1000);
+  drawDogs(now/1000);
   for(const o of orders)drawHuman(o.x+2.8,o.z,o.nang,o.look,o.ph,0,HS);
   // véhicules
   for(const e of traffic)drawVeh(e,now);
@@ -1622,7 +1629,7 @@ function act(){findTarget();if(!tgt||tgt.k==='info')return;
 function actOpt(){findTarget();if(tgt&&tgt.opt)labOptions(tgt)}
 
 /* ---------- vie du quartier : circulation et passants ---------- */
-const traffic=[],peds=[],PEDN=MOBILE?28:40,TRAFN=MOBILE?16:22;
+const traffic=[],peds=[],PEDN=MOBILE?38:58,TRAFN=MOBILE?18:26;
 const LANE=4;
 function lanePath(from,wps){
   const pts=[from].concat(wps),segs=[];
@@ -1938,7 +1945,7 @@ function genOrder(px,pz,bonus,nm){
   else if(Math.random()<.6){const p=randRoadPoint(P.x,P.z,60,380);x=p.x;z=p.z}
   else{const n=RN[Math.floor(Math.random()*RN.length)];x=n.x;z=n.z}
   x=clamp(x,-600,600);z=clamp(z,-600,600);
-  const d=districtAt(x,z),ow=G.own[d.key],rival=ow!=='you'&&!G.ally[ow];
+  const d=quarterAt(x,z),ow=G.own[d.key],rival=ow!=='you'&&!G.ally[ow];
   const o={id:oid++,x,z,s:s.id,qty:RI(3,8+Math.min(12,Math.floor(G.earned/4000))),price:Math.round(s.price*R(.9,1.35)*priceMult()*(rival?1.2:1)*(bonus||1)*(1+.25*TOD.n)*10)/10,ttl:R(130,230),d:d.key,name:nm||pick(NAMES),by:null,cd:0};
   o.rival=rival;o.look=randLook();o.ph=R(0,6);o.nang=R(0,6.28);orders.push(o);return o;
 }
@@ -1995,9 +2002,9 @@ let threat=false,chaseToastT=0;
 function setupGangs(){
   gangs=[];
   for(const id of BIDS){
-    const d=DIS[BOSSES[id].sector];
-    for(let n=0;n<2;n++){
-      const p=randRoadPoint(d.sx*300,d.sz*300,0,250);
+    const d=QD[BOSSES[id].sector];
+    for(let n=0;n<3;n++){
+      const p=randRoadPoint(d.cx,d.cz,0,250);
       const g=mkAI({k:'sedan',c:bossHex(id),gang:id},p.x,p.z,R(0,6.28),2.2);
       g.boss=id;g.state='patrol';g.cool=0;g.wait=0;gangs.push(g)}
   }
@@ -2022,7 +2029,7 @@ function updGangs(dt){
     const id=g.boss,b=BOSSES[id];
     if(G.retired[id])continue;
     g.cool=Math.max(0,g.cool-dt);
-    const st=stance(id),d=Math.hypot(P.x-g.x,P.z-g.z),inHis=districtAt(P.x,P.z).key===b.sector;
+    const st=stance(id),d=Math.hypot(P.x-g.x,P.z-g.z),inHis=quarterAt(P.x,P.z).key===b.sector;
     if(g.state==='wait'){g.wait-=dt;g.v*=.95;g.x+=Math.sin(g.th)*g.v*dt;g.z+=Math.cos(g.th)*g.v*dt;if(g.wait<=0)g.state='patrol';continue}
     const wants=HIDE?false:st==='war'?d<170:st==='hostile'?(inHis&&d<110):false;
     if(wants&&g.state!=='chase'){g.state='chase';if(chaseToastT<=0){chaseToastT=20;toast(`Les gars de ${b.name} te prennent en chasse.`,'bad')}}
@@ -2034,7 +2041,7 @@ function updGangs(dt){
       if(d<45)aiMove(g,P.x,P.z,dt,vt);else followPath(g,dt,vt);
       if(d<5&&g.cool<=0&&!inLab()){hitByGang(g,st);if(ended)return}
     }else{
-      if(!g.path.length){const s=DIS[b.sector],p=randRoadPoint(s.sx*300,s.sz*300,0,260);g.path=pathTo(g.x,g.z,p.x,p.z)}
+      if(!g.path.length){const s=QD[b.sector],p=randRoadPoint(s.cx,s.cz,0,260);g.path=pathTo(g.x,g.z,p.x,p.z)}
       followPath(g,dt,22);
     }
   }
@@ -2119,7 +2126,7 @@ const SC={
     return {text:`« Un policier ripou me doit un service. Pour ${fmt(amt)}, il peut calmer la police autour de toi. »`,choices:ch};
   },
   sell(id){
-    const b=BOSSES[id],sec=DIS[b.sector],price=300000;
+    const b=BOSSES[id],sec=QD[b.sector],price=300000;
     const buy=p=>{G.cash-=p;G.own[b.sector]='you';G.retired[id]=1;delete G.ally[id];return `${b.name} part sans se retourner. ${sec.name} est à toi : clients mieux payés (+10 %) et un gang de moins.`};
     return {text:`« J’arrête la rue. Mon secteur, ${sec.name}, ses clients et ses nuits tranquilles pour ${fmt(price)}. »`,choices:[
       {label:'Acheter '+fmt(price),desc:'Tu prends le secteur.',need:price,fn:()=>buy(price)},
@@ -2136,7 +2143,7 @@ function pickScenario(id){
   else{
     opts.push('alliance','alliance','loan','cop');
     if((G.rel[id]||0)<0)opts.push('tribute');
-    if(G.cash>=180000&&G.own[BOSSES[id].sector]===id)opts.push('sell','sell');
+    if(storyAt('libre')&&G.cash>=180000&&G.own[BOSSES[id].sector]===id)opts.push('sell','sell');
   }
   return SC[pick(opts)](id);
 }
@@ -2176,6 +2183,7 @@ $('tChoices').addEventListener('click',e=>{
   if(c.quick){if(c.fn)c.fn();save();closeTalk();return}
   const res=c.fn?c.fn():'';
   save();
+  if(res===null)return;
   if(res&&typeof res==='object'){curTalk.sc=res;renderChoices(res);return}
   curTalk.done=1;
   $('tText').textContent=res;
@@ -2281,6 +2289,7 @@ function placeLandmarks(){
   for(const k of DKEYS){
     const [cx,cz]=QGP[k];
     if(k===G.home){LAB=buildLab(cx,cz);continue}
+    if(k==='tours')continue;
     LM.push({k,x:cx,z:cz,hs:6,col:hexn(DIS[k].col),st:sty(hexn(DIS[k].col))});addRectAll({x0:cx-6,x1:cx+6,z0:cz-6,z1:cz+6,lm:1});
   }
   labZoneSync(true);labSync(true);
@@ -2660,7 +2669,7 @@ let dealT=0,saveT=0;
 function economy(dt){
   if(ended)return;
   G.t+=dt;
-  if(!G.cheat&&G.cash+(G.bank||0)>=GOAL){gameOver('win');return}
+  if(!G.cheat&&G.cash+(G.clean||0)+(G.bank||0)>=GOAL){gameOver('win');return}
   if(G.strikes>0){G.strikeT+=dt;if(G.strikeT>=480){G.strikeT=0;G.strikes--;toast('Un cran de moins sur ton casier.','good')}}
   labTick(dt);
   dealT+=dt;
@@ -2922,8 +2931,11 @@ $('mmBack').addEventListener('click',()=>{if(mapBig)toggleMap()});
 function drawMini(){
   const S=mm.width,f=S/300,k=S/1250,X=v=>(v+625)*k,big=mapBig;
   mx.drawImage(mmBg(S),0,0);
-  DKEYS.forEach(key=>{const d=DIS[key],ow=G.own[key];mx.fillStyle=(ow==='you'?'#8fbf4a55':BOSSES[ow].col+'38');mx.fillRect(X(d.sx<0?-625:0),X(d.sz<0?-625:0),625*k,625*k)});
-  for(const key of DKEYS){const q=QGP[key],c=key===G.home?'#c98aff':(G.own[key]==='you'?'#8fbf4a':BOSSES[G.own[key]].col);mx.fillStyle='#120e0d';mx.fillRect(X(q[0])-6*f,X(q[1])-6*f,12*f,12*f);mx.fillStyle=c;mx.fillRect(X(q[0])-4.5*f,X(q[1])-4.5*f,9*f,9*f)}
+  for(const q of QKEYS){const ow=G.own[q];mx.fillStyle=(ow==='you'?'#8fbf4a40':BOSSES[ow].col+'38');mx.beginPath();
+    if(q==='nord'){mx.moveTo(X(-625),X(-625));mx.lineTo(X(625),X(-625));for(let x=625;x>=-625;x-=25)mx.lineTo(X(x),X(riverZ(x)))}
+    else{mx.moveTo(X(-625),X(625));mx.lineTo(X(625),X(625));for(let x=625;x>=-625;x-=25)mx.lineTo(X(x),X(riverZ(x)))}
+    mx.closePath();mx.fill()}
+  for(const key of ['cite','port','vieux']){const q=QGP[key],c=key===G.home?'#c98aff':key==='port'?BOSSES.vega.col:BOSSES.refe.col;mx.fillStyle='#120e0d';mx.fillRect(X(q[0])-6*f,X(q[1])-6*f,12*f,12*f);mx.fillStyle=c;mx.fillRect(X(q[0])-4.5*f,X(q[1])-4.5*f,9*f,9*f)}
   for(const o of orders){mx.fillStyle=(G.own[o.d]!=='you'&&!G.ally[G.own[o.d]])?'#ff4a30':'#ffa63d';mx.beginPath();mx.arc(X(o.x),X(o.z),(o.id===(trk&&trk.id)?5:3)*f,0,7);mx.fill()}
   if(M){mx.fillStyle='#ff7a1a';mx.beginPath();mx.arc(X(M.dest.x),X(M.dest.z),7*f,0,7);mx.fill()}
   couriers.forEach(c=>{mx.fillStyle='#fff';mx.fillRect(X(c.x)-2*f,X(c.z)-2*f,4*f,4*f)});
@@ -2944,11 +2956,13 @@ function drawMini(){
   mx.save();mx.translate(X(P.x),X(P.z));mx.rotate(Math.PI-P.th);mx.scale(f,f);mx.fillStyle='#fff';mx.strokeStyle='#000';mx.beginPath();mx.moveTo(0,-8);mx.lineTo(6,6);mx.lineTo(0,3);mx.lineTo(-6,6);mx.closePath();mx.fill();mx.stroke();mx.restore();
   if(big){
     mx.textAlign='center';
-    for(const key of DKEYS){
-      const d=DIS[key],ow=G.own[key],cx=X(LBLP[key][0]),cz=X(LBLP[key][1]);
-      mx.font='700 17px "Bowlby One",Impact,sans-serif';mx.lineWidth=4;mx.strokeStyle='rgba(18,14,13,.9)';mx.strokeText(d.name,cx,cz);mx.fillStyle=d.col;mx.fillText(d.name,cx,cz);
-      mx.font='600 12px "Work Sans",sans-serif';const t=ow==='you'?'Ton gang':BOSSES[ow].name;mx.lineWidth=3;mx.strokeText(t,cx,cz+16);mx.fillStyle='#f3e6d6';mx.fillText(t,cx,cz+16);
+    for(const key of QKEYS){
+      const d=QD[key],ow=G.own[key],cx=X(d.cx),cz=X(key==='nord'?-500:470);
+      mx.font='700 19px "Bowlby One",Impact,sans-serif';mx.lineWidth=4;mx.strokeStyle='rgba(18,14,13,.9)';mx.strokeText(d.name,cx,cz);mx.fillStyle=d.col;mx.fillText(d.name,cx,cz);
+      mx.font='600 12px "Work Sans",sans-serif';const t=key==='sud'?(G.retired.refe?'À toi':'Ton quartier · El Refe'):ow==='you'?'À toi':BOSSES[ow].name;mx.lineWidth=3;mx.strokeText(t,cx,cz+16);mx.fillStyle='#f3e6d6';mx.fillText(t,cx,cz+16);
     }
+    mx.font='600 11px "Work Sans",sans-serif';
+    for(const key of DKEYS){const d=DIS[key],cx=X(LBLP[key][0]),cz=X(LBLP[key][1])+30;mx.lineWidth=3;mx.strokeStyle='rgba(18,14,13,.9)';mx.strokeText(d.name,cx,cz);mx.fillStyle='rgba(243,230,214,.75)';mx.fillText(d.name,cx,cz)}
     mx.font='600 13px "Work Sans",sans-serif';mx.lineWidth=3;mx.strokeStyle='rgba(18,14,13,.9)';
     const hint='Touche un magasin pour poser un repère · touche ailleurs pour fermer';
     mx.strokeText(hint,S/2,S-10);mx.fillStyle='#ffa63d';mx.fillText(hint,S/2,S-10);
@@ -2975,7 +2989,7 @@ function hud(dt){
   if(ba.dataset.l!==lb){ba.dataset.l=lb;vis(ba,lb);$('bActT').textContent=lb}
   if(hn.dataset.l!==hint){hn.dataset.l=hint;vis(hn,hint);hn.textContent=hint}
   vis(bo,tgt&&tgt.opt);
-  vis($('bPunch'),foot&&!pz&&!inside&&!HIDE);
+  vis($('bPunch'),foot&&!pz&&!inside&&!HIDE&&!INT);
   {const bt=`${bagTot()} u. · ${bagUsed()}/${bagPlaces()}`;if($('hBag').textContent!==bt)$('hBag').textContent=bt;$('hBagBox').classList.toggle('full',bagUsed()>=bagPlaces())}
   // joystick à pied, flèches au volant
   vis($('joy'),foot&&!pz&&!HIDE);vis($('carCtl'),!foot&&!pz);
@@ -2984,25 +2998,26 @@ function hud(dt){
   if(!foot){$('hSpd').textContent=Math.round(Math.hypot(P.vx,P.vz)*3.6);$('hVeh').textContent=P.def.name}
   if(WP&&Math.hypot(P.x-WP.x,P.z-WP.z)<12){toast('Arrivé : '+WP.label,'good');WP=null}
   // compteurs
-  $('hCash').textContent=fmt(G.cash);$('hGoalBar').style.width=Math.min(100,(G.cash+(G.bank||0))/GOAL*100)+'%';
+  $('hCash').textContent=fmt(G.cash);$('hGoalBar').style.width=Math.min(100,(G.cash+(G.clean||0)+(G.bank||0))/GOAL*100)+'%';$('hClean').textContent=fmt(G.clean||0);
   vis($('hBankBox'),G.bank>0);if(G.bank>0)$('hBank').textContent=fmt(G.bank);
   $('hSeeds').textContent=seedTot();$('hRaw').textContent=rawTot();$('hStock').textContent=tot()+'/'+cap();
   vis($('hHeatBox'),G.heat>=1);if(G.heat>=1){$('hHeat').textContent=Math.round(G.heat)+' %';$('hHeatBar').style.width=G.heat+'%';$('hHeatBox').classList.toggle('hot',G.heat>=60)}
   vis($('hLifeBox'),G.hp<99.5);if(G.hp<99.5){$('hLife').textContent=Math.max(0,Math.round(G.hp));$('hLifeBar').style.width=Math.max(0,G.hp)+'%'}
   vis($('hCasierBox'),G.strikes>0);if(G.strikes>0)$('hCasier').textContent=G.strikes+'/'+MAXSTRIKES;
   $('hClock').textContent=TOD.label;
-  const d=districtAt(P.x,P.z),p=$('hDist'),ow=G.own[d.key],dt2=inside?'Ton labo':HIDE?'Chez '+HIDE.s.name:d.name+' · '+(ow==='you'?'à toi':BOSSES[ow].name);
+  const d=quarterAt(P.x,P.z),p=$('hDist'),ow=G.own[d.key],dt2=inside?'Ton labo':HIDE?'Chez '+HIDE.s.name:INT?INT.name:d.name+' · '+districtAt(P.x,P.z).name;
   if(p.textContent!==dt2){p.textContent=dt2;p.style.color=inside||HIDE?'#f3e6d6':ow==='you'?'#8fbf4a':BOSSES[ow].col}
   labAlT-=dt;if(labAlT<=0){labAlT=.5;LABAL=labAlerts();const h=$('hLab');vis(h,LABAL.txt);if(LABAL.txt){h.textContent='Labo : '+LABAL.txt;h.classList.toggle('bad',LABAL.bad)}}
   const b=$('banner');
   if(M){vis(b,1);b.style.background='';b.textContent=`GO FAST · ${Math.max(0,Math.ceil(M.t))} s · ${Math.round(Math.hypot(P.x-M.dest.x,P.z-M.dest.z))} m`}
   else if(HIDE){vis(b,1);b.style.background='rgba(60,50,90,.92)';b.textContent=`Caché chez ${HIDE.s.name} · chaleur ${Math.round(G.heat)} %`}
   else if(PLACE){vis(b,1);b.style.background='rgba(40,90,50,.92)';b.textContent=PLACE.ok?'Placement : aperçu vert, « Poser ici » pour valider':'Placement : avance ou tourne-toi'}
+  else if(SBAN&&!INT){vis(b,1);b.style.background=SBAN.bg;b.textContent=SBAN.txt}
   else vis(b,0);
   mmT-=dt;if(mmT<=0){mmT=.1;pickTrack();drawMini()}
   // flèche de guidage : go fast, repère posé, ou client suivi
   const a=$('arrowBox');let tg=null,lab='',col='#ffa63d';
-  if(HIDE||inside){}
+  if(HIDE||inside||INT){}
   else if(M){tg=M.dest;lab='Go fast';col='#ff7a1a'}
   else if(WP){tg=WP;lab=WP.label;col='#7fd1ff'}
   else if((QT=questTarget())){tg=QT;lab=QT.label;col='#ffd24a'}
@@ -3085,7 +3100,7 @@ function slotsHtml(){
   return G.lab.items.slice().sort((a,b)=>a.d-b.d||a.s-b.s).map(machCell).join('');
 }
 function tabLabo(){
-  let s=`<p class="note">Quartier des Lilas. Tes secteurs : ${mySectors()}/4 (+10 % sur les prix par secteur en plus). Objectif : ${fmt(GOAL)}. Casier : ${G.strikes}/${MAXSTRIKES}.</p>`;
+  let s=`<p class="note">Quartier des Lilas. Tes quartiers : ${mySectors()}/2 (+10 % sur les prix par quartier en plus). Argent propre : ${fmt(G.clean||0)}. Objectif : ${fmt(GOAL)}. Casier : ${G.strikes}/${MAXSTRIKES}.</p>`;
   s+=`<div class="kpis"><div><small>Cash</small><b>${fmt(G.cash)}</b></div><div><small>Graines</small><b>${seedTot()}</b></div><div><small>Récolte</small><b>${rawTot()}</b></div><div><small>Produit</small><b>${tot()}/${cap()}</b></div></div>`;
   s+=`<div><h2>Tes machines · ${G.lab.items.length}</h2><p class="note" style="margin:4px 0 8px">Tu poses tes machines où tu veux dans le labo : approche-toi d’un endroit libre, « Poser une machine », puis place l’aperçu devant toi. Profondeur utilisable : ${Math.round(labDmax())} m sur ${Math.round(LAB?LAB.sh.D:17)} m${lv('labo')<4?' (agrandis le labo dans Améliorations)':''}.</p><div class="slots" id="labSlots">${slotsHtml()}</div></div>`;
   const store=MACH.filter(m=>(G.lab.store[m.id]||0)>0);
@@ -3123,14 +3138,14 @@ function tabGarage(){
   const here=menuAt&&menuAt.park?'devant '+menuAt.name:'devant le labo';
   let s=`<p class="note">Chaque véhicule possédé augmente ta capacité de stock. Le véhicule choisi t’attend ${here}. Les voitures rapides permettent les go fast : livraison chronométrée de 10 à 50 unités, payée 3,5 fois le prix, avec la police aux trousses.</p><div class="list">`;
   s+=VEH.filter(v=>v.id!=='foot').map(v=>{const own=G.owned[v.id],cur=G.veh===v.id,c=vPrice(v);
-    const btn=cur?'<button class="btn" disabled>Choisi</button>':own?`<button class="btn" data-act="pick:${v.id}">Le prendre</button>`:`<button class="btn" data-act="buy:${v.id}" data-cost="${c}">Acheter ${fmt(c)}</button>`;
+    const btn=cur?'<button class="btn" disabled>Choisi</button>':own?`<button class="btn" data-act="pick:${v.id}">Le prendre</button>`:`<button class="btn" data-act="buy:${v.id}"${vehClean(v.id)?((G.clean||0)<c?' disabled':''):` data-cost="${c}"`}>Acheter ${fmt(c)}${vehClean(v.id)?' (propre)':''}</button>`;
     return `<div class="item"><b>${v.name}${v.fast?' <span class="tag fast">Go fast</span>':''}${own?' <span class="tag ok">Possédé</span>':''}</b><span>${Math.round(v.vmax*(v.kind==='bike'?1:mot())*3.6)} km/h${v.kind==='bike'?' · discret : ventes −30 % de chaleur, la chaleur retombe 40 % plus vite':''} · stock +${v.cap}</span>${btn}</div>`}).join('')+'</div>';
   return s;
 }
 function tabClients(){
   const list=orders.slice().sort((a,b)=>Math.hypot(a.x-P.x,a.z-P.z)-Math.hypot(b.x-P.x,b.z-P.z));
   return '<p class="note">Les cercles jaunes sont des clients de ton secteur ou de celui d’un allié. Les rouges sont chez un autre gang : ils paient 20 % de plus, mais le gérant prélève 10 % sur la vente. Touche une commande pour la suivre avec la flèche.</p><div class="list">'+list.map(o=>{
-    const d=DIS[o.d],ok=canDeliver(o);
+    const d=QD[o.d]||QD.sud,ok=canDeliver(o);
     return `<div class="item"><b>${o.name} <span class="tag" style="color:${d.col}">${d.name}</span>${ok?'<span class="tag ok">en stock</span>':''}</b><span>${o.qty} × ${SM[o.s].name} · ${fmt(o.price)}/u. · ${Math.round(Math.hypot(o.x-P.x,o.z-P.z))} m · ${Math.ceil(o.ttl)} s${o.by?' · livreur en route':''}</span><button class="btn ${trackId===o.id?'':'ghost'}" data-act="track:${o.id}">${trackId===o.id?'Suivi':'Suivre'}</button></div>`}).join('')+'</div>';
 }
 /* code secret : tout débloquer sans finir la partie (la victoire est désactivée) */
@@ -3161,7 +3176,7 @@ function tabBosses(){
   s+=BIDS.map(id=>{const b=BOSSES[id],r=G.rel[id],st=G.retired[id]?'retired':stance(id);
     const lab={ally:'Allié',war:'En guerre',hostile:'Hostile',neutral:'Neutre',retired:'Retiré'}[st];
     const cut=G.ally[id]?` Commission : ${Math.round(G.ally[id]*100)} %.`:'';
-    return `<div class="item"><b style="color:${b.col}">${b.name} <span class="tag ${st==='ally'?'ok':(st==='war'||st==='hostile')?'fast':''}">${lab}</span></b><span>${b.style} Secteur : ${DIS[b.sector].name}${G.own[b.sector]==='you'?' (à toi)':''}. Relation ${r>0?'+':''}${Math.round(r)}.${cut}</span>${G.retired[id]?'':`<button class="btn" data-act="gift:${id}" data-cost="${giftCost()}">Cadeau ${fmt(giftCost())}</button>`}</div>`}).join('')+'</div>';
+    return `<div class="item"><b style="color:${b.col}">${b.name} <span class="tag ${st==='ally'?'ok':(st==='war'||st==='hostile')?'fast':''}">${lab}</span></b><span>${b.style} Quartier : ${QD[b.sector].name}${G.own[b.sector]==='you'?' (à toi)':''}. Relation ${r>0?'+':''}${Math.round(r)}.${cut}</span>${G.retired[id]?'':`<button class="btn" data-act="gift:${id}" data-cost="${giftCost()}">Cadeau ${fmt(giftCost())}</button>`}</div>`}).join('')+'</div>';
   return s;
 }
 const TABS={labo:['Le labo',tabLabo],shop:['Commander',tabShop],ups:['Améliorations',tabUps],team:['Équipe',tabTeam],garage:['Garage',tabGarage],clients:['Clients',tabClients],bosses:['Les gérants',tabBosses],mp:['Multijoueur',tabMp],save:['Sauvegarde',tabSave]};
@@ -3194,7 +3209,7 @@ $('menu').addEventListener('click',e=>{
       if(menuAt){G.seeds[v]=(G.seeds[v]||0)+n;toast(`+${n} graine${n>1?'s':''} de ${s.name}.`,'good')}else queueDelivery('s',v,n)}break}
     case 'up':{const u=UPS.find(x=>x.id===v),c=upCost(u);if(G.cash>=c&&lv(v)<u.max){G.cash-=c;G.lv[v]=lv(v)+1;if(v==='labo'){labZoneSync();toast('La cloison du fond recule : ton labo s’agrandit.','good')}}break}
     case 'hire':{const u=TEAM.find(x=>x.id===v),c=tmCost(u);if(G.cash>=c&&lv(v)<u.max){G.cash-=c;G.lv[v]=lv(v)+1;syncCouriers()}break}
-    case 'buy':{const c=vPrice(VM[v]);if(G.cash>=c&&!G.owned[v]){G.cash-=c;G.owned[v]=1;chooseVehicle(v);Sfx.cash();toast(VM[v].name+' achetée. Elle t’attend '+(menuAt&&menuAt.park?'devant la concession':'devant le labo')+'.','good')}break}
+    case 'buy':{if(buyVehicle(v)){toast(VM[v].name+' achetée. Elle t’attend '+(menuAt&&menuAt.park?'devant la concession':'devant le labo')+'.','good')}break}
     case 'pick':chooseVehicle(v);toast(VM[v].name+' t’attend '+(menuAt&&menuAt.park?'devant '+menuAt.name:'devant le labo')+'.','good');break;
     case 'track':trackId=+v;break;
     case 'gift':{const c=giftCost();if(G.cash>=c){G.cash-=c;addRel(v,8);toast(BOSSES[v].name+' apprécie le geste.','good')}break}
@@ -3225,7 +3240,8 @@ setInterval(()=>{if(menuOpen&&tab==='mp'&&$('mpList'))$('mpList').innerHTML=mpLi
 
 /* ---------- démarrage ---------- */
 let started=false;
-$('goBtn').onclick=()=>{
+$('goBtn').onclick=()=>{G=newG('cite');G.began=1;save();beginGame(true)};
+const _pickOld=()=>{
   $('goRow').hidden=true;$('goals').hidden=true;$('pickBox').hidden=false;
   $('dgrid').innerHTML=DKEYS.map(k=>{const d=DIS[k],b=BOSSES[BIDS.find(x=>BOSSES[x].sector===k)],pk=PERKS[k];
     return `<button class="dcard" data-home="${k}" style="--c:${d.col}"><h3>${d.name}</h3><span class="war">Ton quartier. ${b.name} a raccroché : la place est libre.</span><span class="pro">+ ${pk.pro}</span><span class="con">− ${pk.con}</span></button>`}).join('');
@@ -3334,7 +3350,7 @@ function mpUpdate(dt){
   if(MP.g&&MP.sendT<=0){
     MP.sendT=.1;
     const st=started&&!ended?{n:MP.nick,x:Math.round(P.x*10)/10,z:Math.round(P.z*10)/10,th:Math.round(P.th*100)/100,k:P.def.kind,c:P.def.color,
-      sh:PLAYER_LOOK.shirt,pa:PLAYER_LOOK.pants,cp:PLAYER_LOOK.cap||0,cash:Math.floor(G.cash+(G.bank||0)),hd:G.home,hid:HIDE?1:0}:{n:MP.nick,x:null,z:null};
+      sh:PLAYER_LOOK.shirt,pa:PLAYER_LOOK.pants,cp:PLAYER_LOOK.cap||0,cash:Math.floor(G.cash+(G.bank||0)),hd:G.home,hid:HIDE||INT?1:0}:{n:MP.nick,x:null,z:null};
     const s=JSON.stringify(st);
     if(s!==MP.last){MP.last=s;MP.g.presence(st).catch(()=>{})}
   }
@@ -3459,27 +3475,35 @@ $('partyNew').onclick=()=>startParty(true,null,$('partyMsg'));
 $('partyJoin').onclick=()=>startParty(false,$('partyIn').value,$('partyMsg'));
 mpInit();
 
-/* ---------- histoire : cinématique d'intro, El Refe, quêtes, téléphone, patrouilles ---------- */
-/* G.story = {q: quête en cours, cut: 1 si El Refe prend 30 %, dead: 1 s'il est mort, paid: total versé, f: drapeaux} */
-var CINE=null,QT=null;
-const REFE_CUT=.3;
-const REFE_LOOK={skin:0x8d5b3e,shirt:0xf2f2f2,pants:0x1d1d20,shoe:0xf1f1f1,hair:0x111111,cap:0x111111,bag:0,long:0};
-const SIDE_LOOK={skin:0xc99068,shirt:0x2f5f8c,pants:0x2b3550,shoe:0x222222,hair:0x16110e,cap:0xd04a2a,bag:0,long:0};
-const DAD_LOOK={skin:0xe3b895,shirt:0x6b6b70,pants:0x3a3a40,shoe:0x3a2a1c,hair:0x9a948c,cap:0,bag:0,long:0};
-const QORDER=['intro','refe','vente','labo','plante','arrose','recolte','seche','sac','benef','choix','c_labo','c_dealer','c_veh','tel','tuer','variete','jardinier','gofast','secteur','final'];
-const STO=()=>{if(!G.story)G.story={q:'variete',cut:0,dead:1,paid:0,f:{}};if(!G.story.f)G.story.f={};return G.story};
-const qIdx=q=>QORDER.indexOf(q);
-const storyAt=q=>qIdx(STO().q)>=qIdx(q);
-const refeHere=()=>!!(SPOT&&!STO().dead&&!(RF&&RF.ko&&RF.gone));
-const labOpen=()=>storyAt('labo');
-
-/* ---------- lieux : la maison familiale et le hall d'El Refe (mêmes pour tous les joueurs) ---------- */
-let SPOT=null,RF=null;
-function facadeSpots(home){
+/* ---------- argent sale / argent propre, commerces de blanchiment ---------- */
+/* G.cash = argent sale (ventes), G.clean = argent propre. Les commerces (laverie, kebab…) blanchissent le sale en propre, chaque minute, avec une limite. */
+const BIZT={
+  laverie:{name:'Laverie',short:'LAVERIE',price:12000,cap:1200,col:'#6fb7e0',desc:'Machines à pièces, personne ne compte les cycles.'},
+  kebab:{name:'Kebab',short:'KEBAB',price:18000,cap:2000,col:'#e0503a',desc:'Des broches qui tournent jour et nuit, et des tickets de caisse à volonté.'},
+  coiffeur:{name:'Salon de coiffure',short:'COIFFURE',price:35000,cap:3600,col:'#c98aff',desc:'Des clientes fidèles… sur le papier.'},
+  lavage:{name:'Station de lavage',short:'LAVAGE AUTO',price:70000,cap:6500,col:'#3fa0c0',desc:'Paiement en liquide uniquement. Parfait.'},
+  garage:{name:'Garage',short:'GARAGE',price:140000,cap:12000,col:'#a0a6ad',desc:'Des réparations que personne ne vérifie.'},
+  boite:{name:'Boîte de nuit',short:'NIGHT-CLUB',price:350000,cap:30000,col:'#ff3fa0',desc:'Les entrées, les bouteilles, le vestiaire : tout se paie en liquide.'},
+};
+const BIZ_FEE=.12;
+let BIZS=[];
+const myBiz=()=>Object.keys(G.biz||{}).length;
+const totalMoney=()=>G.cash+(G.clean||0)+(G.bank||0);
+function payDirty(c){if(G.cash<c)return false;G.cash-=c;return true}
+function payClean(c){if((G.clean||0)<c)return false;G.clean-=c;return true}
+const vehClean=id=>!['bike','scooter','foot'].includes(VM[id].kind);
+function buyVehicle(id,price){
+  const v=VM[id];if(!v||G.owned[id])return false;price=price==null?vPrice(v):price;
+  const clean=vehClean(id);
+  if(clean?!payClean(price):!payDirty(price)){toast(clean?`Il faut ${fmt(price)} d’argent propre : pour une voiture, le concessionnaire n’accepte pas le liquide.`:'Pas assez d’argent.','bad');return false}
+  G.owned[id]=1;chooseVehicle(id);Sfx.cash();if(clean)STO().f.carBought=1;save();return true;
+}
+/* façades libres (pas de magasin) : maison familiale, hall d'El Refe, commerces à vendre… */
+function facadeSpots(zoneKey,quarter){
   const out=[];
   for(const B of BL)for(const b of B.bld){
     if(!b.shop||b.store||b.bank)continue;
-    const d=b.shop;if(home&&districtAt(d.x,d.z).key!==home)continue;
+    const d=b.shop;if(zoneKey&&districtAt(d.x,d.z).key!==zoneKey)continue;if(quarter&&quarterAt(d.x,d.z).key!==quarter)continue;
     const key=Math.floor((d.x+HALF)/PITCH)+','+Math.floor((d.z+HALF)/PITCH);
     if((BLK[key]||[]).some(r=>d.x>r.x0-1.2&&d.x<r.x1+1.2&&d.z>r.z0-1.2&&d.z<r.z1+1.2))continue;
     if(SHOPS.some(s=>Math.hypot(s.x-d.x,s.z-d.z)<28))continue;
@@ -3487,267 +3511,1109 @@ function facadeSpots(home){
     const nx=ax==='x'?sg:0,nz=ax==='z'?sg:0,fx=ax==='x'?(sg>0?b.x1:b.x0):d.x,fz=ax==='z'?(sg>0?b.z1:b.z0):d.z;
     let ok=true;for(const a of [2,3.5,5,6.5])for(const t of [-2.5,0,2.5])if(!pointFree(fx+nx*a-nz*t,fz+nz*a+nx*t,.5))ok=false;
     if(!ok)continue;
-    out.push({x:d.x,z:d.z,fx,fz,nx,nz,tx:-nz,tz:nx});
+    out.push({x:d.x,z:d.z,fx,fz,nx,nz,tx:-nz,tz:nx,ax,sg,bh:b.h||8});
   }
   return out;
 }
 const spotAt=(s,a,t)=>[s.fx+s.nx*a+s.tx*t,s.fz+s.nz*a+s.tz*t];
-function storySetup(){
-  STO();
-  if(!LAB)return;
-  const door=LAB.sh.door,dl=s=>Math.hypot(s.x-door.x,s.z-door.z);
-  let list=facadeSpots(G.home);if(list.length<2)list=facadeSpots(null);
-  const home=list.filter(s=>dl(s)>80&&dl(s)<320).sort((a,b)=>Math.abs(dl(a)-180)-Math.abs(dl(b)-180))[0]||list[0];
-  const refe=list.filter(s=>s!==home&&Math.hypot(s.x-home.x,s.z-home.z)>90&&dl(s)>50).sort((a,b)=>Math.abs(dl(a)-120)-Math.abs(dl(b)-120))[0]||list.find(s=>s!==home);
-  SPOT={home,refe};
-  const [rx,rz]=spotAt(refe,2.4,0);
-  RF={x:rx,z:rz,hx:rx,hz:rz,th:Math.atan2(refe.nx,refe.nz),hp:100,cd:0,fight:false,ko:false,ph:0,sp:0,punch:0,talkT:0};
-  if(STO().dead){RF.ko=true;RF.gone=true}
+const hash2=(x,z)=>((Math.round(x*7)*73856093)^(Math.round(z*7)*19349663))>>>0;
+function bizSetup(avoid){
+  BIZS=[];
+  const far=(s,list,r)=>list.every(o=>Math.hypot(o.x-s.x,o.z-s.z)>r);
+  const pickN=(q,types)=>{
+    const c=facadeSpots(null,q).filter(s=>far(s,avoid,45)&&!(LAB&&Math.hypot(s.x-LAB.sh.door.x,s.z-LAB.sh.door.z)<40)).sort((a,b)=>hash2(a.x,a.z)%9973-hash2(b.x,b.z)%9973);
+    let i=0;
+    for(const s of c){if(i>=types.length)break;if(!far(s,BIZS,70))continue;BIZS.push(Object.assign(s,{id:q[0]+(i+1),type:types[i],q}));i++}
+  };
+  pickN('sud',['laverie','kebab','coiffeur','lavage','garage','boite']);
+  pickN('nord',['laverie','kebab','garage']);
+}
+const bizOpenToBuy=b=>b.q==='sud'||G.own.nord==='you';
+let lauT=0;
+function launderTick(dt){
+  lauT+=dt;if(lauT<2)return;const step=lauT;lauT=0;
+  for(const id in G.biz){
+    const b=G.biz[id],T=BIZT[b.type];if(!T)continue;
+    if(b.closed>0){b.closed=Math.max(0,b.closed-step);continue}
+    G.clean=(G.clean||0)+T.cap*.03*step/60; // un peu de vrai chiffre d'affaires
+    const amt=Math.min(G.cash,T.cap*step/60);if(amt<=0)continue;
+    G.cash-=amt;G.clean+=amt*(1-BIZ_FEE);G.laund=(G.laund||0)+amt;b.total=(b.total||0)+amt;
+  }
+}
+function bizTarget(){
+  let best=null,bd=4;
+  for(const b of BIZS){const d=Math.hypot(P.x-b.x,P.z-b.z);if(d>=bd)continue;bd=d;const T=BIZT[b.type],own=G.biz[b.id];
+    if(own)best={k:'biz',b,label:`${T.name} : tes comptes`};
+    else if(!bizOpenToBuy(b))best={k:'info',label:`${T.name} à vendre… mais le Nord appartient à Madame Vega`};
+    else if(!storyAt('blanch_biz'))best={k:'info',label:`${T.name} à vendre (${fmt(T.price)})`};
+    else best={k:'biz',b,label:`Acheter : ${T.name} (${fmt(T.price)})`}}
+  return best;
+}
+function bizAct(b){
+  const T=BIZT[b.type],own=G.biz[b.id];
+  if(own){
+    openDialog(T.name,T.col,{text:`${T.desc} Blanchit jusqu’à ${fmt(T.cap)} d’argent sale par minute (frais ${Math.round(BIZ_FEE*100)} %). Déjà blanchi ici : ${fmt(own.total||0)}.${own.closed>0?` Fermé encore ${Math.ceil(own.closed)} s après l’attaque du Nord.`:''}`,choices:[{label:'OK',close:1}]},()=>{});
+    return}
+  const first=!myBiz()&&STO().f.firstBizDirty;
+  const can=first?G.cash>=T.price:(G.clean||0)>=T.price;
+  openDialog('À vendre : '+T.name,T.col,{text:`${T.desc} Prix : ${fmt(T.price)} ${first?'(le Blanchisseur s’occupe des papiers : tu peux payer en argent sale, pour cette fois)':'en argent propre (un notaire, des papiers, une banque)'}. Une fois à toi, il blanchit jusqu’à ${fmt(T.cap)} par minute.`,choices:[
+    {label:`Acheter ${fmt(T.price)}${first?' (sale)':' (propre)'}`,desc:can?'Les clés te sont remises tout de suite.':first?'Pas assez d’argent sale.':`Il te manque ${fmt(T.price-(G.clean||0))} d’argent propre.`,off:!can,fn:()=>{
+      if(first?!payDirty(T.price):!payClean(T.price))return '« Revenez avec l’argent. »';
+      G.biz[b.id]={type:b.type,t:G.t,total:0};Sfx.cash();save();
+      return `${T.name} est à toi. Elle blanchira ton argent sale automatiquement, ${fmt(T.cap)} par minute au maximum.`}},
+    {label:'Plus tard',close:1}]},()=>{});
+}
+function drawBizFronts(now){
+  for(const b of BIZS){
+    if(!inView(b.x,b.z,22))continue;
+    const T=BIZT[b.type],own=G.biz[b.id],open=bizOpenToBuy(b);
+    ctx.save();ctx.translate(b.x,b.z);
+    if(b.ax==='x')ctx.transform(b.sg,0,0,1,0,0);else ctx.transform(0,b.sg,1,0,0,0);
+    for(let k=0;k<6;k++){ctx.fillStyle=k%2?'#f1e8d6':own?T.col:'#8a8580';ctx.fillRect(-2.6,-3.3+k*1.1,3.2,1.1)}
+    ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=.2;ctx.strokeRect(-2.6,-3.3,3.2,6.6);
+    ctx.restore();
+    // enseigne lisible, posée sur le trottoir devant la porte
+    const [sx,sz]=spotAt(b,2.7,0),txt=own?T.short:'À VENDRE',night=TOD.n>.35;
+    ctx.font='700 1.35px "Bowlby One",Impact,sans-serif';ctx.textAlign='center';
+    const w=ctx.measureText(txt).width+1;
+    ctx.fillStyle=own?'rgba(20,16,14,.85)':'rgba(245,240,230,.92)';rr(ctx,sx-w/2,sz-1.05,w,1.6,.3);ctx.fill();
+    if(own&&night){ctx.save();ctx.shadowColor=T.col;ctx.shadowBlur=14;ctx.fillStyle=T.col;ctx.fillText(txt,sx,sz+.25);ctx.restore()}
+    else{ctx.fillStyle=own?T.col:open?'#c0392b':'#7a6f66';ctx.fillText(txt,sx,sz+.25)}
+    if(!own&&Math.hypot(P.x-b.x,P.z-b.z)<40){ctx.font='600 .9px "Work Sans",sans-serif';ctx.fillStyle='#f3e6d6';ctx.strokeStyle='rgba(15,10,8,.85)';ctx.lineWidth=.25;const t2=T.name+' · '+fmt(T.price);ctx.strokeText(t2,sx,sz+1.6);ctx.fillText(t2,sx,sz+1.6)}
+    if(own&&own.closed>0){ctx.strokeStyle='#e0503a';ctx.lineWidth=.35;ctx.beginPath();ctx.moveTo(sx-2,sz-1);ctx.lineTo(sx+2,sz+.6);ctx.moveTo(sx+2,sz-1);ctx.lineTo(sx-2,sz+.6);ctx.stroke()}
+  }
 }
 
-/* ---------- les quêtes ---------- */
+/* ---------- dialogues : répliques composées à la volée (El Refe, Vega, passants…), jamais deux fois la même d'affilée ---------- */
+const RECENT=[];
+function fresh(gen,tries){
+  for(let i=0;i<(tries||25);i++){const s=gen();if(!RECENT.includes(s)){RECENT.push(s);if(RECENT.length>160)RECENT.shift();return s}}
+  return gen();
+}
+const pk=a=>a[Math.floor(Math.random()*a.length)];
+function ctxVars(){
+  const h=TOD.label.split(' · ')[0],rain=WX.lvl>.35,night=TOD.n>.5;
+  return {h,rain,night,heat:Math.round(G.heat),paid:fmt((G.story&&G.story.paid)||0),earned:fmt(G.earned),cash:fmt(G.cash),clean:fmt(G.clean||0),biz:myBiz(),ch:chapterOf()};
+}
+function chapterOf(){try{return CHAP_OF[STO().q]||1}catch(e){return 1}}
+const W={
+  weather:v=>v.rain?pk(['Avec cette pluie','Sous ce déluge','Avec ce temps de chien']):v.night?pk(['À cette heure-ci','Avec cette nuit noire','La nuit tombée']):pk(['Avec ce soleil','Par un temps pareil','En plein jour comme ça']),
+};
+/* --- El Refe --- */
+const REFE_OPEN=['Tiens, le petit.','Regarde qui voilà.','Mon élève préféré.','Ah, le gamin des Lilas.','T’as une sale tête aujourd’hui.','Encore toi ?','Approche, approche.','Salut, champion.','Fais vite, j’ai du monde.','Le revoilà.','Toujours vivant, à ce que je vois.','Assieds-toi pas, t’es pas chez toi.','Tiens donc.','Qui c’est qui vient me voir…','T’as l’air pressé.','Ah, mon petit investissement.'];
+const REFE_BODY={
+  all:['Ici, tout le monde me doit quelque chose. Toi aussi.','Tu sais combien de gamins comme toi j’ai vus passer ? Très peu sont restés debout.','Le respect, ça se gagne en euros, pas en paroles.','Mes 30 %, je les compte tous les soirs. Je n’oublie jamais un centime.','La rue, c’est un échiquier. Toi, t’es un pion. Pour l’instant.','J’ai commencé avec moins que toi : un vélo volé et une grande gueule.','Ne fais jamais confiance à un client qui paie trop vite.','Les flics du Sud, je les connais par leur prénom.','Tu m’as déjà rapporté {paid}. Continue comme ça.','{W}, les clients restent chez eux. Mais ils fument quand même.','Il est {h}. Les meilleurs clients dorment encore, ou ne sont pas encore couchés.','Un bon vendeur, ça sourit, ça encaisse et ça disparaît.','Ton père t’a mis dehors ? Le mien m’a mis dehors deux fois. La deuxième, j’ai racheté sa maison.','Jamais de marchandise chez ta mère. Jamais.','Les dents en or, je les ai payées en liquide. Le dentiste n’a pas posé de questions.','Si un jour tu entends mon nom dans la bouche d’un flic, tu oublies le tien.','Le quartier change, mais les règles restent les mêmes.','Trois choses à ne jamais faire : parler, compter devant les gens, et me mentir.'],
+  heat:['T’es brûlant, petit. Les bleus te sentent à trois rues.','Ta chaleur est à {heat} %. Calme-toi avant de revenir me voir.'],
+  night:['La nuit, c’est notre heure. Les clients sont plus généreux et les flics plus fatigués.'],
+  rain:['La pluie, c’est bon pour nous : les patrouilles restent au sec.'],
+  c2:['Les bleus sont partout cette semaine. Fais-toi petit.','Le Nord, c’est chez Vega. Le Sud, c’est chez moi. Tant que chacun reste chez soi, tout le monde est content.','Vega et moi, on se connaît depuis trente ans. Ça ne veut pas dire qu’on s’aime.','Si je te vois traîner de l’autre côté de la rivière, on aura une discussion.','Opération Lilas, qu’ils appellent ça. Dans un mois, ils seront partis. Nous, on sera toujours là.'],
+  c3:['On m’a dit que tu fréquentais le Blanchisseur. Fais attention à qui tu confies ton argent.','Une laverie ? T’as la fibre du commerce, maintenant ?','L’argent propre, c’est pour les banquiers. Nous, on compte en liasses.','Tu blanchis, tu blanchis… et ma part, elle est propre aussi ?'],
+  c4:['Il y a un flic qui pose des questions sur moi. Tu saurais pas qui, par hasard ?','Je sens que tu me caches quelque chose, petit.','Tes commerces poussent comme des champignons. C’est beau, la réussite. C’est fragile, aussi.'],
+};
+const REFE_CLOSE=[' Allez, file.',' Maintenant dégage, tu fais peur aux clients.',' Et n’oublie pas ma part.',' On se reverra.',' Bonne chance, tu vas en avoir besoin.','',' Ciao.',' Va gagner de l’argent. Pour nous deux.'];
+const fill=(s,v)=>s.replace(/\{(\w+)\}/g,(_,k)=>k==='W'?W.weather(v):v[k]!=null?v[k]:'');
+function refeLine(){
+  return fresh(()=>{const v=ctxVars();let pool=REFE_BODY.all.slice();
+    if(v.heat>45)pool=pool.concat(REFE_BODY.heat,REFE_BODY.heat);if(v.night)pool=pool.concat(REFE_BODY.night);if(v.rain)pool=pool.concat(REFE_BODY.rain);
+    if(v.ch>=2)pool=pool.concat(REFE_BODY.c2);if(v.ch>=3)pool=pool.concat(REFE_BODY.c3,REFE_BODY.c3);if(v.ch>=4)pool=pool.concat(REFE_BODY.c4,REFE_BODY.c4);
+    return '« '+pk(REFE_OPEN)+' '+fill(pk(pool),v)+pk(REFE_CLOSE)+' »'});
+}
+const REFE_WAR=['Tu croyais que j’allais te laisser partir avec mon argent ?','Tu crois que Vega va te protéger ? Elle te vendra au premier prix.','Mes hommes connaissent ton adresse. Celle de ton labo aussi.','J’ai fait de toi quelqu’un. Je peux te défaire en une nuit.','Vega t’a monté la tête. Elle te lâchera, comme elle lâche tout le monde.','Chaque commerce que tu ouvres, je le brûlerai.'];
+const refeWarLine=()=>fresh(()=>'« '+pk(['Toi.','Le traître.','Tiens, le petit ingrat.','Tu as du culot de venir ici.'])+' '+pk(REFE_WAR)+' »');
+/* --- Madame Vega --- */
+const VEGA_BODY=['Au Nord, on ne crie pas. On règle.','Je ne t’aime pas encore. Mais tu me rapportes, et ça compte.','Les hommes de Refe parlent trop. Toi, tu écoutes. Continue.','Il y a deux sortes de gens dans ce quartier : ceux qui comptent, et ceux qu’on compte.','{W}, mes dealers rentrent plus tôt. Ce n’est pas une excuse pour toi.','Le jour où Refe tombera, il faudra quelqu’un pour tenir le Sud.','Je joue aux échecs depuis que j’ai six ans. Je n’ai jamais perdu contre un homme pressé.','Ton labo tourne bien, à ce qu’on me dit. Ne t’endors pas.','Trente ans que je tiens le Nord. Personne ne m’a jamais pris un trottoir.','Un commerce propre, c’est une porte de sortie. Pense à la tienne.'];
+const vegaLine=()=>fresh(()=>{const v=ctxVars();return '« '+pk(['Assieds-toi.','Tu es en retard.','Je t’écoute.','Bonsoir.','Te voilà.','Approche.'])+' '+fill(pk(VEGA_BODY),v)+' »'});
+/* --- le Blanchisseur et le flic --- */
+const BL_BODY=['L’argent sale, c’est comme une chemise tachée : il faut le bon produit, la bonne température, et de la patience.','Une laverie, un kebab, un garage… Plus il y a de liquide qui passe, moins on regarde le tien.','Ne blanchis jamais plus que ce que ton commerce peut raisonnablement gagner.','Le fisc s’ennuie avec les petits. Reste petit le plus longtemps possible.','Une facture, deux factures, trois factures… Au bout d’un moment, même toi tu y crois.','Je lave aussi à la main, si tu es pressé. Mais c’est plus cher.'];
+const blLine=()=>fresh(()=>'« '+pk(['Ah, mon jeune ami.','Asseyez-vous, le café est bon ici.','Toujours ponctuel.','Vous avez taché quelque chose ?'])+' '+pk(BL_BODY)+' »');
+const TP_BODY=['Les patrouilles changent d’itinéraire tous les mardis. Le commissaire est un maniaque.','On m’a mis dans les pattes un stagiaire. Il ne sait rien, tant mieux.','Le commissaire veut ta tête, mais il n’a pas de preuves. Garde ça comme ça.','Ici, je suis personne. Un type qui attend un bus. Ne m’appelle pas par mon nom.','Mes collègues pensent que je suis malade. Je le suis : malade de ce boulot.'];
+const tpLine=()=>fresh(()=>'« '+pk(['Ne me regarde pas.','Fais comme si on ne se connaissait pas.','Vite.','T’as cinq minutes.'])+' '+pk(TP_BODY)+' »');
+
+/* --- passants : salutations et conversations toujours différentes --- */
+const PED_TOPICS={
+  etudiant:['Les partiels me tuent, je dors trois heures par nuit.','Ma coloc laisse tout traîner, j’en peux plus.','Je cherche un job, mais personne ne veut de moi.','Mon prof de droit dit que la loi protège tout le monde. Il habite pas ici.','Je révise au café de la place, c’est plus calme qu’à la fac.','J’ai raté mon bus trois fois cette semaine.'],
+  retraite:['De mon temps, ce quartier était calme.','Les jardins étaient plus beaux avant.','Je donne du pain aux pigeons tous les matins.','Mon mari jouait aux boules ici, sur la place.','La boulangère a augmenté ses prix. Encore.','Je connais tout le monde dans le Sud. Enfin, presque.'],
+  commercant:['Les loyers montent, les clients se font rares.','Je ferme à vingt heures. Après, c’est le quartier des autres.','Une nouvelle laverie a ouvert ? Encore une. Qui lave autant de linge ?','Les livreurs me bloquent la rue toute la journée.','Mon fils veut reprendre la boutique. Je lui souhaite du courage.','Les touristes achètent des cartes postales, les gens d’ici achètent du crédit.'],
+  sportif:['Quarante minutes tous les matins, ça change une vie.','Je prépare un semi-marathon.','Fais gaffe aux voitures sur le boulevard, ça roule vite.','Le parc des Jardins, c’est le meilleur parcours de la ville.','Le pont sur la rivière, c’est mon fractionné préféré.'],
+  touriste:['On m’avait dit que les Lilas étaient dangereux. Je trouve ça charmant.','Je cherche un bon restaurant. Vous connaissez ?','Les gens sont tellement gentils ici.','Le phare, au bout du port, il se visite ?','J’ai pris cent photos de la rivière.'],
+  ouvrier:['Cinq heures de la mat’ tous les jours. Mon dos me lâche.','Au port, ça bouge. Plein de camions.','Un petit coup de pouce après le boulot, ça ne se refuse pas.','Mon chef me paie en retard, encore.','On refait le pont, il paraît. Ça fait dix ans qu’on le dit.'],
+  fetard:['Hier soir c’était complètement dingue.','Je connais tous les barmans du quartier.','Le DJ du samedi, il est génial.','Ce soir, c’est soirée au Bon Coin. Viens !','J’ai perdu mes clés. Encore.'],
+};
+const PED_WORLD=[
+  v=>v.rain?'Quel temps pourri, hein ?':'Il fait bon, aujourd’hui.',
+  v=>v.night?'Il est tard pour se promener.':'Belle journée pour traîner dehors.',
+  v=>v.heat>45?'Il y a des flics partout ce soir. Il s’est passé quelque chose ?':'C’est calme, en ce moment. Ça fait du bien.',
+  v=>v.ch>=5?'On dit que le Nord et le Sud vont se faire la guerre. J’ai peur pour mes enfants.':'On dit que le Nord et le Sud s’entendent bien. Tant mieux.',
+  v=>v.biz?'Les nouveaux commerces du quartier marchent bien, on dirait.':'Il manque des commerces dans le coin. Une laverie, au moins.',
+  ()=>'Vous avez vu le bus ? Il passe quand il veut.',
+  ()=>'Mon voisin joue de la trompette à minuit. Je vais le tuer.',
+  ()=>'Le kebab du coin fait les meilleures frites de la ville.',
+  ()=>'Il paraît qu’El Refe a des dents en or. Je l’ai jamais vu sourire.',
+  ()=>'Madame Vega a offert des fournitures à l’école du Nord. Drôle de bonne femme.',
+  ()=>'Au Sud, tout le monde paie El Refe. Même la boulangère, il paraît.',
+  v=>v.ch===2?'Opération Lilas, ils disent à la radio. Des flics à chaque coin de rue.':'Les flics sont repartis, on respire un peu.',
+  ()=>'La police a encore arrêté quelqu’un près de la rivière.',
+];
+const PED_HI=['Salut !','Bonjour.','Ça va ?','Bonsoir.','Oui ?','Tu veux quoi ?','Hé, salut.','On se connaît ?','Je t’écoute.','Bonjour, jeune homme.','Coucou.','Oh, tu m’as fait peur.'];
+const pedHi=K=>fresh(()=>'« '+pk(PED_HI)+(Math.random()<.5?' '+pk(K.hi).replace(/[«»]/g,'').trim():'')+' »');
+function pedChat(p){
+  return fresh(()=>{const v=ctxVars(),a=pk(PED_TOPICS[p.kind]||PED_TOPICS.etudiant),b=Math.random()<.55?' '+pk(PED_WORLD)(v):'';return '« '+a+b+' »'});
+}
+gossip=function(){const v=ctxVars();return fresh(()=>'« '+pk(PED_WORLD)(v)+' '+pk(PED_WORLD)(v)+' »')};
+
+/* --- chercher quelqu'un : on demande aux passants et aux commerçants, indice après indice --- */
+const CLUES={
+  blanch:{who:'le Blanchisseur',q:'blanch_find',lines:[
+    'Le Blanchisseur ? Il ne quitte jamais le Sud, paraît-il. Il aime l’odeur du café, pas celle de la rue.',
+    'Il prend son café tous les jours près de la grande place du Vieux Centre, côté terrasse.',
+    'Costume blanc, journal plié, toujours seul à sa table. Sur la place du Vieux Centre. Tu ne peux pas le rater.']},
+  taupe:{who:'le flic infiltré',q:'taupe_find',lines:[
+    'Un flic en civil ? Il y en a un qui traîne dans le Nord, en bas des tours.',
+    'Il fait semblant d’attendre un bus qui ne vient jamais. Toujours le même abribus.',
+    'Blouson gris, casquette noire, un café froid à la main. À un arrêt de bus des Tours, près de la grande avenue.']},
+};
+function clueActive(){const q=STO().q;for(const k in CLUES)if(CLUES[k].q===q&&(STO().clue[k]||0)<3)return k;return null}
+function askInfo(base){
+  const k=clueActive();if(!k)return null;
+  const C=CLUES[k],s=STO(),n=s.clue[k]||0;
+  if(Math.random()<base){s.clue[k]=n+1;save();toast(`Indice ${n+1}/3 sur ${C.who} noté dans ton carnet (touche l’objectif pour le relire).`,'good');
+    if(n+1===3)setTimeout(()=>toast('Une zone de recherche est apparue sur ta carte. À toi de le trouver.','good'),900);
+    return '« '+C.lines[n]+' »'}
+  return '« '+pk(['Connais pas.','Jamais entendu parler.','Demande à quelqu’un d’autre.','Je ne me mêle pas de ça.','Tu poses beaucoup de questions, toi.','Aucune idée, désolé.','Hmm… non. Essaie au bar, ils savent tout là-bas.','Les commerçants savent plus de choses que moi.'])+' »';
+}
+const askLabel=()=>{const k=clueActive();return k?`Demander des infos sur ${CLUES[k].who}`:null};
+talkPed=function(p){
+  p.hold=999;
+  const K=PKINDS[p.kind],ask=askLabel(),base={retraite:.42,commercant:.45,etudiant:.25,sportif:.2,touriste:.08,ouvrier:.3,fetard:.35}[p.kind]||.25;
+  const ch=[];
+  if(ask)ch.push({label:ask,desc:'Peut-être qu’il sait quelque chose.',fn:()=>{
+    if(Math.random()<.18&&G.cash>=30)return {text:'« Ça dépend… Ça vaut combien pour toi ? »',choices:[{label:'Donner 30 €',fn:()=>{G.cash-=30;return askInfo(Math.min(.95,base*2.2))}},{label:'Laisser tomber',close:1}]};
+    return askInfo(base)}});
+  ch.push({label:'Discuter',desc:'Un peu de conversation.',fn:()=>{
+    const t=pedChat(p);
+    if(Math.random()<.25){const o=genOrder(p.x,p.z,1.25,p.name);trackId=o.id;return t+' Puis : « Au fait, je connais quelqu’un qui cherche. Je t’ai mis la position sur la carte. »'}
+    return t}});
+  ch.push({label:'Lui proposer un échantillon',desc:'1 unité offerte, prise dans ton sac. Risqué.',off:bagTot()===0,fn:()=>{
+      const s=STRAINS.slice().sort((a,b)=>a.price-b.price).find(s=>(G.bag.p[s.id]||0)>0);if(!s)return '« Tu n’as rien sur toi. »';
+      G.bag.p[s.id]--;
+      if(Math.random()<K.acc){const o=genOrder(p.x,p.z,1.3,p.name);trackId=o.id;G.heat=Math.min(100,G.heat+2);return '« Pas mal du tout ! Je t’en prends d’autres, regarde la carte. »'}
+      if(Math.random()<.35){G.heat=Math.min(100,G.heat+10);return '« Mais ça va pas ? Je vais appeler la police ! » Chaleur +10.'}
+      return '« Non merci, ce n’est pas pour moi. »'}});
+  ch.push({label:'Acheter un tuyau (150 €)',desc:'Deux clients garantis.',need:150,fn:()=>lead(p.x,p.z,150)});
+  ch.push({label:'Partir',close:1});
+  openDialog(`${p.name} · ${K.label[p.g==='f'?1:0]}`,'#f3e6d6',{text:pedHi(K),choices:ch},()=>{p.hold=.6});
+};
+clerkTalk=function(s){
+  const T=SHOPTYPES[s.type],ask=askLabel(),base=s.type==='bar'?(INT&&INT.drink?.85:.6):.5;
+  const ch=[];
+  if(ask)ch.push({label:ask,desc:s.type==='bar'?'Les barmans savent tout. Un verre aide.':'Les commerçants voient passer tout le monde.',fn:()=>askInfo(base)});
+  ch.push({label:'Demander des nouvelles du quartier',desc:'Les rumeurs, ça ne coûte rien.',fn:()=>gossip()},
+    {label:'Demander si quelqu’un cherche de la marchandise',desc:'Une chance sur deux.',fn:()=>lead(s.x,s.z,0)},
+    {label:'Acheter un tuyau (150 €)',desc:'Deux clients garantis.',need:150,fn:()=>lead(s.x,s.z,150)},
+    {label:'Au revoir',close:1});
+  openDialog(s.clerk,T.col,{text:fresh(()=>'« '+pk(T.talk).replace(/[«»]/g,'').trim()+' '+pk(PED_WORLD)(ctxVars())+' »'),choices:ch},()=>{});
+};
+
+/* ---------- intérieurs des magasins : on entre, on prend dans les rayons, on paie à la caisse ---------- */
+/* Pendant qu'on est dans un magasin, la ville est figée : on se déplace dans une pièce à part (INT.p), le joueur reste devant la porte. */
+var INT=null;
+const ISC=2.1;
+const CLERK_LOOKS={banque:{skin:0xe3b895,shirt:0x2a2f3a,pants:0x1d1d20,shoe:0x222222,hair:0x3a2a1c,cap:0},concession:{skin:0xc99068,shirt:0x34405a,pants:0x1d1d20,shoe:0x111111,hair:0x111111,cap:0},
+  bar:{skin:0xf0c8a5,shirt:0xf1e8d6,pants:0x222222,shoe:0x3a2a1c,hair:0x8a6a3a,cap:0}};
+function shopItems(s){
+  const T=SHOPTYPES[s.type],out=[];
+  if(T.goods)for(const id of T.goods){const g=GOODS[id];if(g)out.push({kind:'good',id,name:g.name,price:g.price,col:g.look?(g.look.shirt!=null?hex2(g.look.shirt):g.look.pants!=null?hex2(g.look.pants):g.look.cap!=null?(g.look.cap?hex2(g.look.cap):'#d7a67f'):'#888'):pick(T.items),look:!!g.look})}
+  if(s.type==='graineterie')for(const v of STRAINS)out.push(G.unlocked[v.id]?{kind:'seed',id:v.id,name:'Graines de '+v.name+' ×5',price:seedCost(v)*5,col:'#8fbf4a'}:{kind:'unlock',id:v.id,name:'Débloquer '+v.name,price:v.unlock,col:'#c9a05a'});
+  if(s.type==='jardinerie')for(const m of MACH)out.push({kind:'mach',id:m.id,name:m.name,price:machPrice(m),col:m.cat==='culture'?'#a0502e':m.cat==='eau'?'#2f6f96':'#8d9096'});
+  if(s.type==='concession')for(const v of VEH)if(v.id!=='foot')out.push({kind:'car',id:v.id,name:v.name,price:vPrice(v),col:hex2(v.color)});
+  if(s.type==='bar')for(const u of TEAM)out.push({kind:'hire',id:u.id,name:u.name,price:tmCost(u),col:'#d4872b'});
+  return out;
+}
+function itemState(it){
+  if(it.kind==='good'){const g=GOODS[it.id];
+    if(g.bag)return G.bag.lv>=g.bag?'Déjà à toi':'';
+    if(g.look){const worn=Object.keys(g.look).every(k=>PLAYER_LOOK[k]===g.look[k]);return worn?'Porté':(g.price===0||inv(it.id))?'own':''}
+    if(g.max)return inv(it.id)>=g.max?'Maximum atteint':''}
+  if(it.kind==='car')return G.owned[it.id]?'own':'';
+  if(it.kind==='hire'){const u=TEAM.find(x=>x.id===it.id);return lv(it.id)>=u.max?'Complet':''}
+  return '';
+}
+function buildInterior(s){
+  const T=SHOPTYPES[s.type],car=s.type==='concession',W=car?36:26,D=car?24:18;
+  const I={s,name:s.name,type:s.type,T,W,D,walls:[],spots:[],basket:[],p:{x:W/2,z:D-1.8,th:Math.PI,vx:0,vz:0,v:0,ph:0},clerk:null,deco:[],t:0};
+  const wall=(x0,z0,x1,z1,k)=>{const r={x0,z0,x1,z1,k};I.walls.push(r);return r};
+  wall(-1,-1,W+1,.4);wall(-1,0,.4,D+1);wall(W-.4,0,W+1,D+1);wall(-1,D-.4,W/2-1.8,D+1);wall(W/2+1.8,D-.4,W+1,D+1);
+  I.door={x:W/2,z:D-1.1};
+  const items=shopItems(s);
+  if(car){
+    // showroom : voitures en épi, deux-roues près de l'entrée, bureau vitré au fond à droite
+    const slots=[[11,10],[18,10],[25,10],[11,17.5],[18,17.5],[25,17.5],[32,17.5]],bikes=[[8,21.6],[12,21.6]];
+    let ci=0,bi=0;
+    for(const it of items){const v=VM[it.id],sm=v.kind==='bike'||v.kind==='scooter';
+      if(v.kind==='truck'){it.x=3.2;it.z=12;it.th=0;it.sx=6;it.sz=12;I.spots.push(it);wall(1.4,5.6,5,18.4,'car');continue}
+      const sl=sm?bikes[bi++]:slots[ci++];if(!sl)continue;
+      it.x=sl[0];it.z=sl[1];it.th=sm?Math.PI/2:.3;it.sx=sl[0];it.sz=sl[1]+(sm?1.8:3.6);I.spots.push(it);
+      if(!sm)wall(sl[0]-1.9,sl[1]-2.6,sl[0]+1.9,sl[1]+2.6,'car')}
+    I.office={x0:W-10,z0:.4,x1:W-.4,z1:6.2,door:{x:W-6,z:6.9},desk:{x:W-5.2,z:2.6}};
+    wall(W-10,5.8,W-7.4,6.3,'glass');wall(W-4.6,5.8,W-.4,6.3,'glass');wall(W-10.3,.4,W-9.8,6.3,'glass');
+    wall(W-7,1.9,W-3.4,3.1,'desk');
+    I.clerk={x:W-5.2,z:1.3,th:0,look:CLERK_LOOKS.concession,name:s.clerk};
+    I.reg={x:W-6,z:7.4,label:'Parler au vendeur'};
+  }else{
+    // caisse à gauche, rayons à droite (deux étagères + un mur)
+    wall(1.6,3.6,8.6,4.8,'counter');
+    I.clerk={x:5,z:2.4,th:0,look:CLERK_LOOKS[s.type]||{skin:pick(SKINS),shirt:hexn(T.col),pants:0x2b3550,shoe:0x222222,hair:0x16110e,cap:0},name:s.clerk};
+    I.reg={x:5,z:6.1,label:s.type==='banque'?'Guichet de la banque':s.type==='bar'?'Comptoir du bar':'Caisse'};
+    if(s.type==='bar'){
+      const seats=[[13,6],[20,6],[13,12],[20,12]];
+      items.forEach((it,i)=>{const [tx,tz]=seats[i%4];wall(tx-1.2,tz-1.2,tx+1.2,tz+1.2,'table');it.x=tx+1.9;it.z=tz;it.sx=tx+3.3;it.sz=tz;it.look=randLook();it.seat=1;I.spots.push(it)});
+      for(const [x,z] of [[3,10],[3,14],[8,13]]){wall(x-.9,z-.9,x+.9,z+.9,'stool');I.deco.push({k:'patron',x,z,look:randLook(),th:R(0,6)})}
+    }else if(s.type==='banque'){
+      wall(11,3.6,24,4.8,'counter');I.deco.push({k:'vault',x:21,z:1.4});I.deco.push({k:'plant',x:2,z:15},{k:'plant',x:24,z:15},{k:'bench',x:13,z:11});
+    }else{
+      const rows=[{z0:5.4,z1:6.4,sz:7.6},{z0:10.4,z1:11.4,sz:12.6},{z0:.4,z1:1.4,sz:2.6}];
+      const per=6,xs=[...Array(per)].map((_,i)=>12.2+i*2.2);
+      rows.slice(0,2).forEach(r=>wall(11,r.z0,24.6,r.z1,'rack'));wall(11,.4,24.6,1.4,'rack');
+      items.forEach((it,i)=>{const r=rows[Math.floor(i/per)%3],x=xs[i%per];it.x=x;it.z=(r.z0+r.z1)/2;it.sx=x;it.sz=r.sz;I.spots.push(it)});
+      I.deco.push({k:s.type==='jardinerie'||s.type==='graineterie'?'plant':'crate',x:2.2,z:15.5},{k:'plant',x:24.4,z:15.5});
+    }
+  }
+  return I;
+}
+function enterShop(s){
+  for(const k in keys)keys[k]=0;
+  if(PLACE)cancelPlace(true);
+  INT=buildInterior(s);INT.cam={x:CAM.x,z:CAM.z,zoom:CAM.zoom};s.line=pick(SHOPTYPES[s.type].greet);
+  Sfx.click();
+  setTimeout(()=>{if(INT&&INT.s===s)toast(`${s.clerk} : ${s.line}`)},300);
+}
+openShop=enterShop;
+function exitShop(force){
+  if(!INT)return;
+  if(INT.basket.length&&!force){
+    openDialog(INT.s.clerk,INT.T.col,{text:'« Vous partez sans payer ? Je reprends les articles, alors. »',choices:[
+      {label:'Reposer les articles et sortir',fn:()=>{INT.basket=[];exitShop(true);return 'Tu reposes tout sur les étagères.'}},
+      {label:'Rester',close:1}]},()=>{});
+    return}
+  const c=INT.cam;INT=null;CAM.x=P.x;CAM.z=P.z;CAM.zoom=c?c.zoom:CAM.zoom;Sfx.click();save();
+}
+function intCollide(e,r){
+  for(const b of INT.walls){const nx=clamp(e.x,b.x0,b.x1),nz=clamp(e.z,b.z0,b.z1),dx=e.x-nx,dz=e.z-nz,d2=dx*dx+dz*dz;
+    if(d2<r*r){if(d2<1e-6){e.z=b.z1+r;continue}const d=Math.sqrt(d2);e.x=nx+dx/d*r;e.z=nz+dz/d*r}}
+}
+function updInterior(dt){
+  const I=INT;I.t+=dt;if(CINE||talking)return;
+  const p=I.p;let ix=J.x,iy=J.y,kb=false;
+  if(!J.on){ix=(keys.r?1:0)-(keys.l?1:0);iy=(keys.dn?1:0)-(keys.up?1:0);kb=!!(ix||iy)}
+  const mag=Math.min(1,Math.hypot(ix,iy));let mx=ix,mz=iy;const ml=Math.hypot(mx,mz);if(ml>1e-4){mx/=ml;mz/=ml}
+  let sp=0;if(mag>.12)sp=kb?(keys.walk?2.4:5.4):mag>.8?5.4:2.4*(.5+.5*(mag-.12)/.68);
+  const k=Math.min(1,dt*(sp?10:12));p.vx+=(mx*sp-p.vx)*k;p.vz+=(mz*sp-p.vz)*k;
+  if(sp>.1){let d=Math.atan2(mx,mz)-p.th;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;p.th+=clamp(d,-dt*12,dt*12)}
+  const ox=p.x,oz=p.z;p.x+=p.vx*dt;p.z+=p.vz*dt;intCollide(p,.5);
+  p.x=clamp(p.x,.9,I.W-.9);if(p.z>I.D-.5){exitShop();p.z=I.D-1.2;p.vz=0}
+  p.v=Math.hypot(p.x-ox,p.z-oz)/Math.max(dt,1e-4);p.ph+=p.v*dt*3.4;
+}
+function intZoom(){return clamp(Math.min(VW/(INT.W+3),(VH-60)/(INT.D+4)),15,48)}
+function intCamera(dt){
+  const I=INT,z=intZoom(),hw=VW/2/z,hh=VH/2/z;
+  let tx=I.W/2,tz=I.D/2;
+  if(2*hw<I.W+2)tx=clamp(I.p.x,hw-1,I.W-hw+1);if(2*hh<I.D+2)tz=clamp(I.p.z,hh-1.5,I.D-hh+1);
+  const k=1-Math.exp(-dt*7);CAM.x+=(tx-CAM.x)*k;CAM.z+=(tz-CAM.z)*k;CAM.zoom+=(z-CAM.zoom)*k;CAM.shake=Math.max(0,CAM.shake-dt*14);
+}
+const basketTot=()=>INT?INT.basket.reduce((a,b)=>a+b.price,0):0;
+function intTarget(){
+  const I=INT,p=I.p;let best=null,bd=2.2;
+  for(const it of I.spots){const d=Math.hypot(p.x-it.sx,p.z-it.sz);if(d>=bd)continue;bd=d;const st=itemState(it);
+    if(it.kind==='car')best={k:'icar',it,label:st==='own'?`${it.name} : déjà à toi`:`Voir : ${it.name} (${fmt(it.price)})`};
+    else if(it.kind==='hire')best=st?{k:'info',label:`${it.name} : ${st}`}:{k:'ihire',it,label:`Recruter : ${it.name} (${fmt(it.price)})`};
+    else if(st==='own')best={k:'iwear',it,label:'Porter : '+it.name};
+    else if(st)best={k:'info',label:`${it.name} : ${st}`};
+    else if(I.basket.some(b=>b.key===it.kind+it.id)&&(it.kind!=='seed'))best={k:'iput',it,label:'Reposer : '+it.name};
+    else best={k:'itake',it,label:`Prendre : ${it.name} (${fmt(it.price)})`}}
+  {const d=Math.hypot(p.x-I.reg.x,p.z-I.reg.z);if(d<bd+.3){bd=d;
+    best=I.basket.length?{k:'ipay',label:`Payer à la caisse : ${I.basket.length} article${I.basket.length>1?'s':''} · ${fmt(basketTot())}`}:{k:'ireg',label:I.type==='banque'?'Guichet : déposer ou retirer':I.type==='bar'?'Commander au comptoir':I.type==='concession'?'Parler au vendeur':'Parler à '+I.clerk.name}}}
+  if(Math.hypot(p.x-I.door.x,p.z-I.door.z)<bd+.6)best={k:'iexit',label:'Sortir'};
+  return best;
+}
+function takeItem(it){
+  const I=INT;
+  if(it.kind==='good'){const g=GOODS[it.id];if(g.use&&bagRoomItem(it.id)<=I.basket.filter(b=>b.id===it.id).length+0){toast('Ton sac est plein.','bad');return}}
+  I.basket.push({key:it.kind+it.id,kind:it.kind,id:it.id,name:it.name,price:it.price});
+  floater(INT.p.x,INT.p.z,'+ '+it.name,'#ffd24a',false);Sfx.click();
+  if(it.kind==='good'&&GOODS[it.id].look){Object.assign(PLAYER_LOOK,GOODS[it.id].look);delete PLAYER_LOOK.s;toast('Tu l’essaies. Paie à la caisse pour le garder.')}
+}
+function applyBought(b){
+  if(b.kind==='good'){const g=GOODS[b.id];
+    if(g.bag){G.bag.lv=Math.max(G.bag.lv,g.bag)}
+    else if(g.look){G.inv[b.id]=1;Object.assign(G.look,g.look)}
+    else if(g.use){bagAddItem(b.id,1)}
+    else G.inv[b.id]=inv(b.id)+1}
+  else if(b.kind==='seed'){G.seeds[b.id]=(G.seeds[b.id]||0)+5;STO().f.boughtSeeds=1}
+  else if(b.kind==='unlock'){G.unlocked[b.id]=1;G.sel=b.id}
+  else if(b.kind==='mach'){G.lab.store[b.id]=(G.lab.store[b.id]||0)+1}
+}
+function payDialog(){
+  const I=INT,tot=basketTot();
+  const list=I.basket.map(b=>`${b.name} : ${fmt(b.price)}`).join(' · ');
+  openDialog(I.clerk.name+' · caisse',I.T.col,{text:`${list}. Total : ${fmt(tot)}. Tu as ${fmt(G.cash)} d’argent sale sur toi.`,choices:[
+    {label:'Payer '+fmt(tot),desc:G.cash>=tot?'En liquide.':'Pas assez : repose quelque chose.',off:G.cash<tot,fn:()=>{
+      if(!payDirty(tot))return '« Il manque de l’argent. »';
+      I.basket.forEach(applyBought);const n=I.basket.length;I.basket=[];applyLook();Sfx.cash();save();
+      return pick(['« Merci, bonne journée ! »','« Et voilà. Le ticket ? Non ? Comme vous voulez. »','« Revenez quand vous voulez. »'])+` (${n} article${n>1?'s':''} payé${n>1?'s':''})`}},
+    ...I.basket.slice(0,4).map((b,i)=>({label:'Reposer : '+b.name,desc:'Retirer du panier.',fn:()=>{I.basket.splice(i,1);applyLook();return '« Pas de souci. »'}})),
+    {label:'Continuer mes achats',close:1}]},()=>{});
+}
+function bankDialog(){
+  const I=INT,amts=[1000,10000,100000];
+  const ch=[];
+  for(const a of amts)ch.push({label:'Déposer '+fmt(a),desc:'Argent propre uniquement.',off:(G.clean||0)<a,quick:1,fn:()=>{if(payClean(a)){G.bank=(G.bank||0)+a;Sfx.cash();toast(fmt(a)+' déposés au coffre.','good')}setTimeout(bankDialog,50)}});
+  ch.push({label:'Tout déposer',desc:fmt(G.clean||0)+' propres.',off:(G.clean||0)<1,quick:1,fn:()=>{const a=Math.floor(G.clean||0);G.clean-=a;G.bank=(G.bank||0)+a;Sfx.cash();setTimeout(bankDialog,50)}});
+  ch.push({label:'Tout retirer',desc:'Retour en argent propre.',off:!(G.bank>0),quick:1,fn:()=>{G.clean=(G.clean||0)+G.bank;G.bank=0;setTimeout(bankDialog,50)}});
+  ch.push({label:'Parler au banquier',fn:()=>pick(['« Nous ne prenons que l’argent propre. Le reste, ce n’est pas notre métier. »','« Le coffre est à l’abri des descentes de police. »','« Un relevé de compte propre, c’est la meilleure des cartes de visite. »'])});
+  ch.push({label:'Fermer',close:1});
+  openDialog(I.clerk.name+' · Banque',I.T.col,{text:`Ton coffre : ${fmt(G.bank||0)}. Argent propre sur toi : ${fmt(G.clean||0)}. Argent sale : ${fmt(G.cash)} (refusé au guichet).`,choices:ch},()=>{});
+}
+function barDialog(){
+  const I=INT;
+  openDialog(I.clerk.name+' · Bar',I.T.col,{text:pick(I.T.talk),choices:[
+    {label:'Un verre (8 €)',desc:'Chaleur -3, et le barman parle plus volontiers.',need:8,fn:()=>{G.cash-=8;G.heat=Math.max(0,G.heat-3);INT.drink=1;return pick(['« À la tienne. »','« Sers-toi, c’est la maison qui… non, c’est 8 €. »','« Un petit verre, ça délie les langues. »'])}},
+    {label:'Parler',desc:'Rumeurs, clients, et peut-être plus.',fn:()=>{clerkTalk(I.s);return null}},
+    {label:'Fermer',close:1}]},()=>{});
+}
+function hireDialog(it){
+  const u=TEAM.find(x=>x.id===it.id),c=tmCost(u),names=['Yanis','Bilal','Steve','Moussa','Kevin','Nina','Jordan','Sofia','Malik','Lenny'];
+  const nm=pick(names);
+  openDialog(`${nm} · ${u.name}`,'#d4872b',{text:`« Je cherche du boulot. ${u.desc} » Tu en as ${lv(u.id)}/${u.max}.`,choices:[
+    {label:'Engager pour '+fmt(c),desc:'Payé en liquide.',off:G.cash<c,fn:()=>{if(!payDirty(c))return '« Reviens avec l’argent. »';G.lv[u.id]=lv(u.id)+1;syncCouriers();save();return `« Je commence quand tu veux, patron. » ${nm} rejoint ton équipe.`}},
+    {label:'Non merci',close:1}]},()=>{});
+}
+/* concession : on choisit la voiture, le vendeur t'emmène dans son bureau, on négocie */
+function carDialog(it){
+  const v=VM[it.id];
+  if(G.owned[it.id]){openDialog(INT.clerk.name,INT.T.col,{text:`« Elle est déjà à vous. Je vous la sors ? »`,choices:[{label:'Oui, devant la concession',fn:()=>{menuAt=INT.s;chooseVehicle(it.id);menuAt=null;return '« Elle vous attend dehors. »'}},{label:'Non',close:1}]},()=>{});return}
+  const clean=vehClean(it.id);
+  openDialog(INT.clerk.name,INT.T.col,{text:`« ${pick(['Belle bête, hein ?','Vous avez l’œil.','Celle-là, elle ne restera pas longtemps.'])} ${v.name} : ${Math.round(v.vmax*(v.kind==='bike'?1:mot())*3.6)} km/h, ${v.cap} de coffre${v.fast?', parfaite pour les longs trajets pressés':''}. ${fmt(it.price)}${clean?'. Une voiture, ça se paie par virement : argent propre uniquement.':', en liquide si vous voulez.'} »`,choices:[
+    {label:'Je la veux. On en parle ?',desc:'Il t’emmène dans son bureau pour négocier.',fn:()=>{setTimeout(()=>officeScene(it),60);return null}},
+    {label:'Je regarde seulement',close:1}]},()=>{});
+}
+function officeScene(it){
+  const I=INT,o=I.office,v=VM[it.id];closeTalk();
+  const p=I.p,start={x:p.x,z:p.z},cl={x:it.sx+1.2,z:it.sz};
+  const beats=[
+    {d:2.6,who:'Le vendeur',txt:'« Excellent choix. Venez, on sera mieux dans mon bureau. »',f(c,k){
+      const w=eio(seg(k,.1,1));c.npc.x=cl.x+(o.door.x-cl.x)*w;c.npc.z=cl.z+(o.door.z-.6-cl.z)*w;c.p.x=start.x+(o.door.x-1.1-start.x)*w;c.p.z=start.z+(o.door.z+.6-start.z)*w;
+      c.npc.sp=k<1?2.2:0;c.p.sp=k<1?2.2:0;c.npc.th=faceTo(c.npc.x,c.npc.z,o.door.x,o.door.z-2);c.p.th=faceTo(c.p.x,c.p.z,o.door.x,o.door.z-2);c.npc.mode=c.p.mode=undefined;c.cam=[(c.p.x+o.door.x)/2,(c.p.z+o.door.z)/2-1,1]}},
+    {d:2.6,nar:'Le bureau sent le café froid et le cuir neuf.',f(c,k){
+      c.npc.x=o.desk.x;c.npc.z=o.desk.z-1.3;c.npc.th=0;c.npc.mode='sit';c.npc.sp=0;c.p.x=o.desk.x;c.p.z=o.desk.z+1.4;c.p.th=Math.PI;c.p.mode='sit';c.p.sp=0;c.cam=[o.desk.x,o.desk.z+.4,1.25]}},
+    {d:3,who:'Le vendeur',txt:`« Alors, ${v.name}… Je vous la fais à ${fmt(it.price)}. Prix catalogue. Mais on peut discuter. »`,f(c,k){c.npc.mode='chat'}},
+  ];
+  startCine(beats,{space:'int',actors:{p:{look:PLAYER_LOOK},npc:{look:I.clerk.look}},onEnd:()=>{I.seat={npc:{x:o.desk.x,z:o.desk.z-1.3},p:{x:o.desk.x,z:o.desk.z+1.4}};I.p.x=o.door.x;I.p.z=o.door.z+.8;negotiate(it)}});
+}
+function negotiate(it){
+  const I=INT,v=VM[it.id],base=it.price;let cur=base,mood=1,fails=0;
+  const clean=()=>vehClean(it.id);
+  const offer=(f,pr)=>({label:`Proposer ${fmt(Math.round(cur*f))}`,desc:`−${Math.round((1-f)*100)} %`,off:fails>=3,fn:()=>{
+    const o=Math.round(cur*f);
+    if(Math.random()<pr*mood){cur=o;mood*=.85;return step(pick([`« Hmm… ${fmt(o)}. Vous êtes dur en affaires. Allez, d’accord. »`,`« ${fmt(o)} ? Vous allez me mettre à la rue. Bon. Va pour ${fmt(o)}. »`,`« Je ne devrais pas… mais ${fmt(o)}, c’est d’accord. »`]))}
+    fails++;mood*=.7;
+    if(f<.85){cur=Math.round(cur*1.03);return step(`« Vous vous moquez de moi ? Pour la peine, c’est ${fmt(cur)} maintenant. »`)}
+    return step(fails>=3?`« Bon. ${fmt(cur)}, c’est mon dernier prix. À prendre ou à laisser. »`:pick(['« Non. Impossible. »','« Vous rêvez, mon ami. »','« Mon patron me tuerait. »']))}});
+  function step(txt){return {text:txt+` Prix actuel : ${fmt(cur)}${clean()?' (argent propre)':''}.`,choices:choices()}}
+  function choices(){return [
+    {label:`Signer à ${fmt(cur)}`,desc:clean()?`Virement en argent propre (tu as ${fmt(G.clean||0)}).`:`En liquide (tu as ${fmt(G.cash)}).`,fn:()=>{
+      if(!buyVehicleAt(it.id,cur))return {text:clean()?`« ${fmt(cur)} en argent propre, monsieur. Pas un centime en liquide. Revenez quand vous aurez de quoi. »`:'« Il vous manque de l’argent. »',choices:[{label:'Partir',close:1}]};
+      I.seat=null;return `« Félicitations ! » Il te tend les clés. ${v.name} t’attend devant la concession.`}},
+    offer(.95,.8),offer(.9,.5),offer(.8,.22),
+    {label:'Partir',desc:'Il garde la voiture pour un autre.',fn:()=>{I.seat=null;return '« Dommage. Ma porte reste ouverte. »'}}]}
+  openDialog(I.clerk.name+' · bureau',I.T.col,{text:`Il croise les mains sur le bureau. Prix demandé : ${fmt(cur)}${clean()?' (argent propre uniquement)':''}.`,choices:choices()},()=>{I.seat=null});
+}
+function buyVehicleAt(id,price){const prev=menuAt;menuAt=INT&&INT.s;const ok=buyVehicle(id,price);menuAt=prev;return ok}
+function intAct(t){
+  if(!t)return;
+  switch(t.k){
+    case 'itake':takeItem(t.it);break;
+    case 'iput':{const i=INT.basket.findIndex(b=>b.key===t.it.kind+t.it.id);if(i>=0)INT.basket.splice(i,1);applyLook();break}
+    case 'iwear':{Object.assign(G.look,GOODS[t.it.id].look);applyLook();save();break}
+    case 'ipay':payDialog();break;
+    case 'ireg':if(INT.type==='banque')bankDialog();else if(INT.type==='bar')barDialog();else clerkTalk(INT.s);break;
+    case 'icar':carDialog(t.it);break;
+    case 'ihire':hireDialog(t.it);break;
+    case 'iexit':exitShop();break;
+  }
+  Sfx.click();
+}
+/* ---------- dessin d'un intérieur ---------- */
+function drawShelfItem(it,t){
+  const x=it.x,z=it.z;
+  if(it.kind==='seed'||it.kind==='unlock'){for(let k=0;k<3;k++){ctx.fillStyle=k%2?'#e9e2d0':it.col;rr(ctx,x-.75+k*.5,z-.35,.42,.7,.06);ctx.fill()}if(it.kind==='unlock'){ctx.fillStyle='#2a2220';rr(ctx,x-.25,z-.2,.5,.4,.08);ctx.fill()}return}
+  if(it.kind==='mach'){const m=MM[it.id];if(m.cat==='culture'){el(ctx,x,z,.4,.4,it.id==='pot'?'#a0502e':it.id==='bac'?'#4a5a4a':'#dfe3e6');el(ctx,x,z,.28,.28,'#3a2a1c')}else if(m.cat==='eau'){el(ctx,x,z,.38,.38,'#2f6f96');el(ctx,x,z,.2,.2,'#24587a')}else{ctx.fillStyle='#8d9096';rr(ctx,x-.5,z-.4,1,.8,.08);ctx.fill();ctx.fillStyle='#2a2c30';ctx.fillRect(x-.2,z-.2,.4,.4)}return}
+  if(it.kind==='good'&&it.look){ctx.fillStyle=it.col;rr(ctx,x-.5,z-.4,1,.8,.18);ctx.fill();ctx.fillStyle='rgba(0,0,0,.25)';ctx.fillRect(x-.04,z-.4,.08,.8);ctx.strokeStyle='#b8bcc2';ctx.lineWidth=.06;ctx.beginPath();ctx.moveTo(x-.2,z-.45);ctx.lineTo(x,z-.62);ctx.lineTo(x+.2,z-.45);ctx.stroke();return}
+  ctx.fillStyle=it.col;rr(ctx,x-.55,z-.38,1.1,.76,.1);ctx.fill();ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(x-.55,z-.38,1.1,.16);
+}
+function drawInterior(now){
+  const I=INT,T=I.T,t=now/1000;
+  ctx.fillStyle='#0d0a09';ctx.fillRect(-60,-60,I.W+120,I.D+120);
+  // sol : carrelage
+  ctx.fillStyle=T.floor||'#2e2a26';ctx.fillRect(0,0,I.W,I.D);
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=.05;ctx.beginPath();for(let x=0;x<=I.W;x+=2){ctx.moveTo(x,0);ctx.lineTo(x,I.D)}for(let z=0;z<=I.D;z+=2){ctx.moveTo(0,z);ctx.lineTo(I.W,z)}ctx.stroke();
+  if(I.type==='concession'){const g=ctx.createLinearGradient(0,0,I.W,I.D);g.addColorStop(0,'rgba(255,255,255,.06)');g.addColorStop(.5,'rgba(255,255,255,0)');g.addColorStop(1,'rgba(255,255,255,.05)');ctx.fillStyle=g;ctx.fillRect(0,0,I.W,I.D)}
+  // lumière douce sous les plafonniers
+  for(let x=6;x<I.W;x+=10)for(let z=5;z<I.D;z+=8){const g=ctx.createRadialGradient(x,z,.5,x,z,7);g.addColorStop(0,'rgba(255,236,200,.10)');g.addColorStop(1,'rgba(255,236,200,0)');ctx.fillStyle=g;ctx.fillRect(x-7,z-7,14,14)}
+  // paillasson + porte
+  ctx.fillStyle='#3a2a1c';rr(ctx,I.W/2-1.6,I.D-1.4,3.2,1,.15);ctx.fill();
+  ctx.fillStyle='rgba(255,220,150,.18)';ctx.fillRect(I.W/2-1.8,I.D-.4,3.6,.6);
+  ctx.font='600 .55px "Work Sans",sans-serif';ctx.textAlign='center';ctx.fillStyle='#d7c9b6';ctx.fillText('SORTIE',I.W/2,I.D-.7);
+  // meubles
+  for(const w of I.walls){
+    const wd=w.x1-w.x0,hd=w.z1-w.z0;
+    if(!w.k){ctx.fillStyle='#231c19';ctx.fillRect(w.x0,w.z0,wd,hd);continue}
+    if(w.k==='rack'){ctx.fillStyle='#4a3a2c';rr(ctx,w.x0,w.z0,wd,hd,.12);ctx.fill();ctx.fillStyle='#6a5440';ctx.fillRect(w.x0+.1,w.z0+.1,wd-.2,.12)}
+    else if(w.k==='counter'||w.k==='desk'){ctx.fillStyle=w.k==='desk'?'#5a3a22':'#6b4a2c';rr(ctx,w.x0,w.z0,wd,hd,.14);ctx.fill();ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(w.x0+.1,w.z0+.08,wd-.2,.14)}
+    else if(w.k==='glass'){ctx.fillStyle='rgba(150,200,230,.35)';ctx.fillRect(w.x0,w.z0,wd,hd);ctx.strokeStyle='rgba(200,230,250,.6)';ctx.lineWidth=.06;ctx.strokeRect(w.x0,w.z0,wd,hd)}
+    else if(w.k==='table'){el(ctx,(w.x0+w.x1)/2,(w.z0+w.z1)/2,wd/2,hd/2,'#5a3a22');el(ctx,(w.x0+w.x1)/2,(w.z0+w.z1)/2,wd/2-.15,hd/2-.15,'#6b4a2c');el(ctx,(w.x0+w.x1)/2+.3,(w.z0+w.z1)/2-.2,.16,.16,'#d4872b')}
+    else if(w.k==='stool'){el(ctx,(w.x0+w.x1)/2,(w.z0+w.z1)/2,.5,.5,'#3a2a1c')}
+  }
+  if(I.office){const o=I.office;ctx.fillStyle='rgba(120,90,60,.25)';ctx.fillRect(o.x0,o.z0,o.x1-o.x0,o.z1-o.z0);ctx.font='600 .6px "Work Sans",sans-serif';ctx.fillStyle='#d7c9b6';ctx.fillText('BUREAU',o.door.x,o.z0+.9);
+    el(ctx,o.desk.x-1.2,o.desk.z-.1,.25,.2,'#f1e8d6');ctx.fillStyle='#1a1a1a';ctx.fillRect(o.desk.x+.3,o.desk.z-.35,.9,.6)}
+  for(const d of I.deco){
+    if(d.k==='plant'){el(ctx,d.x,d.z,.6,.6,'#5a3a22');for(let i=0;i<6;i++){const a=i+t*.2;el(ctx,d.x+Math.cos(a)*.45,d.z+Math.sin(a)*.45,.35,.2,'#4f9a2f')}}
+    else if(d.k==='crate'){ctx.fillStyle='#8a6a3a';ctx.fillRect(d.x-.7,d.z-.7,1.4,1.4);ctx.strokeStyle='#5a4428';ctx.lineWidth=.08;ctx.strokeRect(d.x-.7,d.z-.7,1.4,1.4)}
+    else if(d.k==='vault'){el(ctx,d.x,d.z,1.3,1.3,'#8d9096');el(ctx,d.x,d.z,1,1,'#5f646b');ctx.strokeStyle='#d9b020';ctx.lineWidth=.12;ctx.beginPath();ctx.arc(d.x,d.z,.6,0,6.3);ctx.stroke()}
+    else if(d.k==='bench'){ctx.fillStyle='#5a3a22';ctx.fillRect(d.x-2,d.z-.4,4,.8)}
+    else if(d.k==='patron')drawHuman(d.x,d.z,d.th,d.look,0,0,ISC,'sit');
+  }
+  // articles et vendeurs
+  for(const it of I.spots){
+    if(it.kind==='car'){const V=VM[it.id];if(V.kind==='bike')drawBike(it.x,it.z,it.th,V.color,0);else drawVeh({x:it.x,z:it.z,th:it.th,spr:{k:V.kind==='scooter'?'scooter':V.kind,c:V.color},brk:false,park:true},now);
+      ctx.fillStyle='rgba(255,255,255,.08)';ctx.beginPath();ctx.arc(it.x,it.z,3,0,6.3);ctx.fill();continue}
+    if(it.kind==='hire'){drawHuman(it.x,it.z,-Math.PI/2,it.look,0,0,ISC,'sit');continue}
+    drawShelfItem(it,t);
+  }
+  if(I.clerk&&!(CINE&&CINE.space==='int')&&!I.seat)drawHuman(I.clerk.x,I.clerk.z,I.clerk.th,I.clerk.look,0,0,ISC,talking?'chat':undefined);
+  if(I.seat){drawHuman(I.seat.npc.x,I.seat.npc.z,0,I.clerk.look,0,0,ISC,'chat');drawHuman(I.seat.p.x,I.seat.p.z,Math.PI,PLAYER_LOOK,0,0,ISC,'sit')}
+  // repère de la caisse
+  if(!I.basket.length||I.type!=='concession'){const f=(t*.8)%1;ring(I.reg.x,I.reg.z,.6+f*.6,I.T.col,.08,(1-f)*.6)}
+  // joueur (ou acteurs de la cinématique)
+  if(CINE&&CINE.space==='int')drawCineActors(ISC);
+  else if(!I.seat)drawHuman(I.p.x,I.p.z,I.p.th,PLAYER_LOOK,I.p.ph,Math.hypot(I.p.vx,I.p.vz),ISC);
+  // étiquettes des articles proches
+  ctx.textAlign='center';
+  for(const it of I.spots){const d=Math.hypot(I.p.x-it.sx,I.p.z-it.sz);if(d>4.2||CINE)continue;
+    const st=itemState(it),inB=I.basket.some(b=>b.key===it.kind+it.id),a=clamp(1.4-d/3.5,0,1);ctx.globalAlpha=a;
+    const lbl=it.name,pr=st&&st!=='own'?st:st==='own'?'À toi':fmt(it.price)+(inB?' · dans le panier':'');
+    const yy=it.kind==='car'?it.z-3.2:it.z-1.1;
+    ctx.font='700 .62px "Work Sans",sans-serif';const w=Math.max(ctx.measureText(lbl).width,ctx.measureText(pr).width)+.8;
+    ctx.fillStyle='rgba(20,15,13,.85)';rr(ctx,it.x-w/2,yy-1.25,w,1.45,.2);ctx.fill();
+    ctx.fillStyle='#f3e6d6';ctx.fillText(lbl,it.x,yy-.55);ctx.font='600 .52px "Work Sans",sans-serif';ctx.fillStyle=inB?'#9ccf6a':'#ffd24a';ctx.fillText(pr,it.x,yy+.05);ctx.globalAlpha=1}
+  // enseigne de la boutique
+  ctx.font='700 .9px "Bowlby One",Impact,sans-serif';ctx.fillStyle=T.col;ctx.fillText(I.name.toUpperCase(),I.W/2,-.25);
+}
+
+/* ---------- histoire : cinq chapitres, El Refe (le Sud), Madame Vega (le Nord), le Blanchisseur, le flic infiltré, la trahison ---------- */
+/* G.story = {v, q: objectif en cours, cut: El Refe prend 30 %, dead: El Refe est mort, paid: total versé, f: drapeaux, clue: indices trouvés} */
+var CINE=null,QT=null,SBAN=null;
+const REFE_CUT=.3;
+const LOOKS={
+  refe:{skin:0x8d5b3e,shirt:0xf2f2f2,pants:0x1d1d20,shoe:0xf1f1f1,hair:0x111111,cap:0x111111},
+  side:{skin:0xc99068,shirt:0x2f5f8c,pants:0x2b3550,shoe:0x222222,hair:0x16110e,cap:0xd04a2a},
+  dad:{skin:0xe3b895,shirt:0x6b6b70,pants:0x3a3a40,shoe:0x3a2a1c,hair:0x9a948c,cap:0},
+  vega:{skin:0xd9a882,shirt:0x7a1f2b,pants:0x1d1d20,shoe:0x111111,hair:0x111111,cap:0,long:1},
+  guard:{skin:0x6e4630,shirt:0x1d1d20,pants:0x1d1d20,shoe:0x111111,hair:0x111111,cap:0},
+  blanch:{skin:0xf0c8a5,shirt:0xf4f1ea,pants:0xf4f1ea,shoe:0x7a5a3a,hair:0xc9c4bc,cap:0},
+  taupe:{skin:0xe3b895,shirt:0x6d7076,pants:0x2b3550,shoe:0x222222,hair:0x3a2a1c,cap:0x1d1d20},
+  nord:{skin:0xc99068,shirt:0xc9a02a,pants:0x1d1d20,shoe:0x111111,hair:0x111111,cap:0x1d1d20},
+};
+/* ---------- les chapitres et leurs objectifs ---------- */
+const CHAPTERS=[
+  {n:1,t:'À la rue',q:['intro','refe','vente','labo','plante','arrose','recolte','seche','sac','clients5','graines','benef','choix','c_labo','c_dealer','c_veh','refe2']},
+  {n:2,t:'Les bleus',q:['tel','police','equipe','variete','vega','vega_liv','cash5k','refe3']},
+  {n:3,t:'L’argent sale',q:['blanch_find','blanch_biz','lave5k','biz2','voiture','banque','blanch2']},
+  {n:4,t:'La taupe',q:['taupe_find','taupe_pay','taupe_tip','biz3','net50k','taupe2']},
+  {n:5,t:'La trahison',q:['guerre','defend','lieut','net150k','cache','refe_final']},
+  {n:6,t:'Le patron des Lilas',q:['libre']},
+];
+const QORDER=CHAPTERS.flatMap(c=>c.q);
+const CHAP_OF=Object.fromEntries(CHAPTERS.flatMap(c=>c.q.map(q=>[q,c.n])));
+const qIdx=q=>QORDER.indexOf(q);
+function STO(){
+  if(!G.story)G.story={q:'intro',cut:0,dead:0,paid:0,f:{},clue:{}};
+  const s=G.story;if(!s.f)s.f={};if(!s.clue)s.clue={};
+  if(s.v!==2){ // sauvegardes d'avant les chapitres : on reprend au chapitre 2 (Refe vivant, 30 %)
+    s.v=2;
+    if(qIdx(s.q)<0||qIdx(s.q)>qIdx('c_veh')||s.dead){s.q=qIdx(s.q)>=0&&qIdx(s.q)<qIdx('refe')?s.q:'tel';s.dead=0;s.cut=1;s.f.deal=1}
+  }
+  return s;
+}
+const storyAt=q=>qIdx(STO().q)>=qIdx(q);
+const labOpen=()=>storyAt('labo');
+const war=()=>storyAt('guerre')&&!STO().dead;
+
+/* ---------- lieux (mêmes pour tous les joueurs) ---------- */
+let SPOT=null;
+function nearestFacade(list,x,z,avoid){let b=null,bd=1e9;for(const s of list){if(avoid&&avoid.some(a=>Math.hypot(a.x-s.x,a.z-s.z)<45))continue;const d=Math.hypot(s.x-x,s.z-z);if(d<bd){bd=d;b=s}}return b}
+function qgSpot(key){
+  const [cx,cz]=QGP[key],r=roadsideSpot(cx,cz),dx=r.x-cx,dz=r.z-cz,l=Math.hypot(dx,dz)||1,nx=dx/l,nz=dz/l;
+  return {x:cx+nx*9,z:cz+nz*9,nx,nz,tx:-nz,tz:nx,fx:cx+nx*7,fz:cz+nz*7};
+}
+function storySetup(){
+  STO();if(!LAB)return;
+  const door=LAB.sh.door,dl=s=>Math.hypot(s.x-door.x,s.z-door.z);
+  const south=facadeSpots(null,'sud'),north=facadeSpots(null,'nord');
+  const home=south.filter(s=>dl(s)>80&&dl(s)<300).sort((a,b)=>Math.abs(dl(a)-170)-Math.abs(dl(b)-170))[0]||south[0];
+  const refe=south.filter(s=>s!==home&&Math.hypot(s.x-home.x,s.z-home.z)>90&&dl(s)>50).sort((a,b)=>Math.abs(dl(a)-120)-Math.abs(dl(b)-120))[0]||south.find(s=>s!==home);
+  const lt1=nearestFacade(south,180,420,[refe,home]),lt2=nearestFacade(south,-180,300,[refe,home,lt1]);
+  // le Blanchisseur : à une table de la terrasse de la place du Vieux Centre
+  let bt=CITY.props.filter(p=>p.k==='table').sort((a,b)=>Math.hypot(a.x-PLAZA.x-30,a.z-PLAZA.z)-Math.hypot(b.x-PLAZA.x-30,b.z-PLAZA.z))[0]||{x:PLAZA.x+20,z:PLAZA.z,a:0};
+  const blanch={x:bt.x+Math.sin(bt.a+Math.PI)*1.5,z:bt.z+Math.cos(bt.a+Math.PI)*1.5,th:Math.atan2(bt.x-(bt.x+Math.sin(bt.a+Math.PI)*1.5),bt.z-(bt.z+Math.cos(bt.a+Math.PI)*1.5)),table:bt};
+  CITY.npc=CITY.npc.filter(n=>Math.hypot(n.x-blanch.x,n.z-blanch.z)>1.2);
+  // le flic infiltré : à un abribus des Tours, près de l'avenue centrale
+  const sh=CITY.props.filter(p=>p.k==='shelter'&&quarterAt(p.x,p.z).key==='nord').sort((a,b)=>Math.hypot(a.x+120,a.z+330)-Math.hypot(b.x+120,b.z+330))[0]||{x:-150,z:-320,a:0};
+  const taupe={x:sh.x+Math.sin(sh.a)*1.6+Math.cos(sh.a)*2.6,z:sh.z+Math.cos(sh.a)*1.6-Math.sin(sh.a)*2.6,th:sh.a};
+  CITY.npc=CITY.npc.filter(n=>Math.hypot(n.x-taupe.x,n.z-taupe.z)>1.5);
+  SPOT={home,refe,lt1,lt2,blanch,taupe,vega:qgSpot('port'),cache:qgSpot('vieux')};
+  bizSetup([home,refe,lt1,lt2].filter(Boolean));
+  buildStoryNPC();
+}
+/* ---------- personnages de l'histoire ---------- */
+let SNPC=[];
+function mkNPC(o){return Object.assign({th:0,ph:0,sp:0,mode:'chat',punch:0,hp:100,max:100,dmg:9,cd:0,fight:false,ko:false,stag:0,talkT:0},o,{hx:o.x,hz:o.z})}
+function buildStoryNPC(){
+  const S=SPOT,s=STO();SNPC=[];
+  const at=(sp,a,t)=>spotAt(sp,a,t);
+  {const [x,z]=at(S.refe,2.4,0);SNPC.push(mkNPC({id:'refe',name:'El Refe',look:LOOKS.refe,x,z,th:Math.atan2(S.refe.nx,S.refe.nz),col:'#ffd24a',show:()=>!s.dead&&!storyAt('cache'),talk:talkRefe,noHit:1}))}
+  {const [x,z]=at(S.refe,1.8,2.6);SNPC.push(mkNPC({id:'refe_side',name:'',look:LOOKS.side,x,z,th:Math.atan2(S.refe.nx,S.refe.nz),mode:'sit',chair:1,show:()=>!s.dead&&!storyAt('guerre')}))}
+  {const v=S.vega;SNPC.push(mkNPC({id:'vega',name:'Madame Vega',look:LOOKS.vega,x:v.x,z:v.z,th:Math.atan2(v.nx,v.nz),col:BOSSES.vega.col,show:()=>storyAt('vega'),talk:talkVega,noHit:1}));
+    for(const t of [-2.6,2.6])SNPC.push(mkNPC({id:'vg'+t,name:'',look:LOOKS.guard,x:v.x+v.tx*t-v.nx*.6,z:v.z+v.tz*t-v.nz*.6,th:Math.atan2(v.nx,v.nz),mode:undefined,show:()=>storyAt('vega'),noHit:1}))}
+  {const b=S.blanch;SNPC.push(mkNPC({id:'blanch',name:'Le Blanchisseur',unknown:'Homme en blanc',look:LOOKS.blanch,x:b.x,z:b.z,th:b.th,mode:'sit',col:'#f4f1ea',show:()=>true,known:()=>!!s.f.blanchMet,talk:talkBlanch,noHit:1}))}
+  {const t=S.taupe;SNPC.push(mkNPC({id:'taupe',name:'Le flic infiltré',unknown:'Un type qui attend le bus',look:LOOKS.taupe,x:t.x,z:t.z,th:t.th,mode:undefined,col:'#7fd1ff',show:()=>true,known:()=>!!s.f.taupeMet,talk:talkTaupe,noHit:1}))}
+}
+const npcById=id=>SNPC.find(n=>n.id===id);
+/* combattants : lieutenants, gardes, hommes du Nord, El Refe à la fin */
+let FIGHTERS=[];
+function addFighter(o){const f=mkNPC(Object.assign({mode:undefined,aggro:7,leash:60},o));FIGHTERS.push(f);return f}
+function spawnLieutenants(){
+  const s=STO();FIGHTERS=FIGHTERS.filter(f=>f.group!=='lt');
+  [['lt1','Le Grec'],['lt2','Sacha']].forEach(([k,name])=>{if(s.f['down_'+k])return;const sp=SPOT[k];if(!sp)return;const [x,z]=spotAt(sp,2.4,0);
+    addFighter({id:k,name,look:{...LOOKS.nord,shirt:k==='lt1'?0x2a2f3a:0x5a1f2b},x,z,hp:130,max:130,dmg:10,group:'lt',col:'#ff7a5a',onDown:()=>{s.f['down_'+k]=1;s.f.lieutDown=(s.f.lieutDown||0)+1;toast(`${name} est hors jeu. ${s.f.lieutDown}/2 lieutenants d’El Refe.`,'good');G.heat=Math.max(G.heat,55)}});
+    const [gx,gz]=spotAt(sp,3.2,2.2);addFighter({id:k+'g',name:'Garde',look:LOOKS.nord,x:gx,z:gz,hp:60,max:60,dmg:7,group:'lt'})});
+}
+function spawnHideout(){
+  FIGHTERS=FIGHTERS.filter(f=>f.group!=='cache');const c=SPOT.cache;
+  addFighter({id:'refeF',name:'El Refe',look:LOOKS.refe,x:c.x,z:c.z,hp:240,max:240,dmg:12,group:'cache',col:'#ffd24a',aggro:10,boss:1,onDown:refeDown});
+  for(const t of [-3,3])addFighter({id:'cg'+t,name:'Garde du corps',look:LOOKS.guard,x:c.x+c.tx*t+c.nx,z:c.z+c.tz*t+c.nz,hp:80,max:80,dmg:8,group:'cache',aggro:12});
+}
+/* ---------- les objectifs ---------- */
 const nearestShop=type=>{let b=null,bd=1e9;for(const s of SHOPS)if(s.type===type){const d=Math.hypot(s.x-P.x,s.z-P.z);if(d<bd){bd=d;b=s}}return b};
 const shopTgt=type=>{const s=nearestShop(type);return s?{x:s.x,z:s.z,label:s.name}:null};
 const labTgt=()=>inLab()||!LAB?null:{x:LAB.sh.door.x,z:LAB.sh.door.z,label:'Ton labo'};
-const refeTgt=()=>refeHere()?{x:RF.x,z:RF.z,label:'El Refe'}:null;
+const npcTgt=id=>{const n=npcById(id);return n?{x:n.x,z:n.z,label:n.name}:null};
 function clientTgt(){
   if(bagTot()===0)return LAB?{x:LAB.sh.door.x,z:LAB.sh.door.z,label:'Labo : remplis ton sac'}:null;
   let b=null,bd=1e9;for(const o of orders)if(canDeliver(o)){const d=Math.hypot(o.x-P.x,o.z-P.z);if(d<bd){bd=d;b=o}}
   return b?{x:b.x,z:b.z,label:b.name}:null;
 }
 const plants=()=>G.lab.items.filter(it=>it.pl);
+const F=()=>STO().f;
+const crew=()=>lv('dealer')+lv('jardinier')+lv('livreur');
 const Q={
   intro:{t:'À la rue',d:'Regarde la scène.'},
-  refe:{t:'Va voir El Refe',d:'Il tient le hall d’un immeuble de ton secteur. Suis la flèche jaune et parle-lui (bouton d’action ou E).',who:'Toi',say:'« El Refe connaît tout le monde. Lui, il saura quoi faire. »',tg:refeTgt,done:()=>STO().f.deal},
+  refe:{t:'Va voir El Refe',d:'Il tient le hall d’un immeuble du Quartier Sud, pas loin de chez toi. Suis la flèche jaune et parle-lui (bouton d’action ou E).',who:'Toi',say:'« El Refe connaît tout le monde. Lui, il saura quoi faire. »',tg:()=>npcTgt('refe'),done:()=>F().deal},
   vente:{t:'Vends à ton premier client',d:'El Refe t’a donné 6 unités. Approche-toi du client (cercle jaune) : la vente se fait toute seule.',who:'El Refe',say:'« Tu t’approches, tu donnes, tu encaisses. Pas de blabla. Et 30 % pour moi. »',
-    tg:()=>{const o=orders.find(q=>q.tuto);return o?{x:o.x,z:o.z,label:o.name}:clientTgt()},done:()=>STO().f.sale1},
-  labo:{t:'Entre dans ton labo',d:'El Refe t’a laissé les clés d’un local. Suis la flèche et entre.',who:'El Refe',say:'« Le local est à toi. Tu y fais pousser, tu y fais sécher, et tu me ramènes ma part. »',tg:labTgt,done:()=>inLab()},
+    tg:()=>{const o=orders.find(q=>q.tuto);return o?{x:o.x,z:o.z,label:o.name}:clientTgt()},done:()=>F().sale1},
+  labo:{t:'Entre dans ton labo',d:'El Refe t’a laissé les clés d’un local, plus loin dans le Sud. Suis la flèche et entre.',who:'El Refe',say:'« Le local est à toi. Tu y fais pousser, tu y fais sécher, et tu me ramènes ma part. »',tg:labTgt,done:()=>inLab()},
   plante:{t:'Plante une graine',d:'Approche-toi d’un pot et appuie sur le bouton d’action : « Planter ».',who:'El Refe',say:'« Une graine, un pot. Commence petit. »',tg:labTgt,done:()=>plants().length>0},
-  arrose:{t:'Arrose ta plante',d:'Remplis l’arrosoir au robinet (à droite de l’entrée), puis arrose le pot.',who:'El Refe',say:'« Sans eau, elle fane. Garde un œil sur la jauge bleue. »',tg:labTgt,done:()=>STO().f.water},
-  recolte:{t:'Récolte quand c’est mûr',d:'La plante pousse toute seule (20 s pour l’herbe du jardin). Taille-la à mi-pousse pour +20 %, puis récolte à 100 %.',who:'El Refe',say:'« La patience, c’est ce qui sépare les pros des guignols. »',tg:labTgt,done:()=>STO().f.harvest||rawTot()>0||tot()>0},
-  seche:{t:'Fais sécher la récolte',d:'Approche-toi du séchoir et charge la récolte. Le produit sec part dans la réserve.',who:'El Refe',say:'« Personne n’achète de l’herbe mouillée. Séchoir. »',tg:labTgt,done:()=>STO().f.dry||tot()>0},
-  sac:{t:'Remplis ton sac',d:'Attends la fin du séchage, puis va aux étagères de la réserve (à droite de l’entrée) : « Remplir mon sac ».',who:'El Refe',say:'« Ce qui est dans la réserve ne rapporte rien. Ce qui est dans ton sac, si. »',tg:labTgt,done:()=>STO().f.take},
-  benef:{t:'Fais 100 € de bénéfice',d:'Va voir les clients (cercles jaunes sur la carte). El Refe prend 30 % au passage.',who:'El Refe',say:'« Les clients sont partout. La nuit, ils paient mieux. »',tg:clientTgt,
-    prog:()=>`${fmt(Math.max(0,G.earned-(STO().f.e0||0)))} / 100 €`,done:()=>G.earned-(STO().f.e0||0)>=100},
-  choix:{t:'Choisis par quoi commencer',d:'Touche cet objectif pour choisir : agrandir le labo, recruter un dealer ou acheter un véhicule.',who:'El Refe',say:'« Tu commences à gagner ta vie. Maintenant, réfléchis à ce qui te rapportera le plus. »',done:()=>!!STO().f.choice},
-  c_labo:{t:'Agrandis ton labo',d:'À l’ordinateur du labo (à gauche de l’entrée), onglet Améliorations : « Agrandir le labo ».',who:'El Refe',say:'« Plus de pots, plus de récolte. Logique. »',tg:labTgt,prog:()=>fmt(G.cash)+' / '+fmt(upCost(UPS[0])),done:()=>lv('labo')>=1},
-  c_dealer:{t:'Recrute un dealer de rue',d:'Au bar ou à l’ordinateur du labo (onglet Équipe). Il vend ta réserve même quand tu n’es pas là.',who:'El Refe',say:'« Un bon dealer, ça bosse pendant que tu dors. »',tg:()=>shopTgt('bar'),prog:()=>fmt(G.cash)+' / '+fmt(tmCost(TEAM[2])),done:()=>lv('dealer')>=1},
-  c_veh:{t:'Achète un véhicule',d:'Un vélo ou un scooter suffit pour commencer : à la concession, ou à l’ordinateur (onglet Garage).',who:'El Refe',say:'« À pied, tu ne fais pas trois clients dans la soirée. »',tg:()=>shopTgt('concession'),done:()=>Object.keys(G.owned).some(k=>k!=='foot'&&G.owned[k])},
-  tel:{t:'Achète un téléphone',d:'Dans une supérette. Avec un téléphone, les gérants t’envoient un message au lieu de venir te chercher.',who:'El Refe',say:'« Un pro, ça répond au téléphone. Ça évite les visites surprises. »',tg:()=>shopTgt('superette'),done:()=>inv('telephone')>0},
-  tuer:{t:'Débarrasse-toi d’El Refe',d:'Il prend 30 % de tout ce que tu gagnes, à vie. Il n’y a qu’une façon d’effacer la dette : va le voir et règle ça (👊 ou F pour frapper).',who:'Toi',say:'« Chaque vente, il se sert. Tant qu’il sera là, je travaillerai pour lui. »',tg:refeTgt,
-    prog:()=>`Déjà versé à El Refe : ${fmt(STO().paid||0)}`,done:()=>STO().dead},
-  variete:{t:'Débloque une nouvelle variété',d:'À la graineterie ou à l’ordinateur du labo (onglet Commander). Les variétés chères rapportent plus.',tg:()=>shopTgt('graineterie'),done:()=>STRAINS.filter(s=>G.unlocked[s.id]).length>=3},
-  jardinier:{t:'Recrute un jardinier',d:'Au bar ou à l’ordinateur (onglet Équipe) : il arrose, récolte et replante à ta place.',tg:()=>shopTgt('bar'),done:()=>lv('jardinier')>=1},
-  gofast:{t:'Réussis un go fast',d:'Achète une voiture rapide (Classe G, RS6, M5…), remplis ton sac d’au moins 10 unités et lance un go fast (G).',done:()=>STO().f.gofast},
-  secteur:{t:'Prends un deuxième secteur',d:'Quand un gérant voudra vendre son secteur, achète-le. Garde de bonnes relations avec eux.',done:()=>mySectors()>=2},
-  final:{t:'Deviens le patron des Lilas',d:'Atteins 10 000 000 €.',prog:()=>fmt(G.cash+(G.bank||0))+' / 10 000 000 €',done:()=>false},
+  arrose:{t:'Arrose ta plante',d:'Remplis l’arrosoir au robinet (à droite de l’entrée), puis arrose le pot.',who:'El Refe',say:'« Sans eau, elle fane. Garde un œil sur la jauge bleue. »',tg:labTgt,done:()=>F().water},
+  recolte:{t:'Récolte quand c’est mûr',d:'La plante pousse toute seule (20 s pour l’herbe du jardin). Taille-la à mi-pousse pour +20 %, puis récolte à 100 %.',tg:labTgt,done:()=>F().harvest||rawTot()>0||tot()>0},
+  seche:{t:'Fais sécher la récolte',d:'Approche-toi du séchoir et charge la récolte. Le produit sec part dans la réserve.',tg:labTgt,done:()=>F().dry||tot()>0},
+  sac:{t:'Remplis ton sac',d:'Attends la fin du séchage, puis va aux étagères de la réserve (à droite de l’entrée) : « Remplir mon sac ».',tg:labTgt,done:()=>F().take},
+  clients5:{t:'Vends à 5 clients',d:'Les clients sont les cercles jaunes. Replante entre deux tournées : le labo travaille pendant que tu vends.',who:'El Refe',say:'« Un client content en ramène deux. »',tg:clientTgt,prog:()=>`${Math.min(5,(F().sales||0)-(F().s0||0))} / 5 clients`,done:()=>(F().sales||0)-(F().s0||0)>=5},
+  graines:{t:'Achète des graines',d:'Entre à la graineterie, prends un paquet dans les rayons, puis paie à la caisse.',who:'El Refe',say:'« Plus de graines, plus de plantes. Plus de plantes, plus de ma part. »',tg:()=>shopTgt('graineterie'),done:()=>F().boughtSeeds},
+  benef:{t:'Gagne 400 €',d:'Continue de vendre. El Refe prend 30 % au passage.',tg:clientTgt,prog:()=>`${fmt(Math.max(0,G.earned-(F().e0||0)))} / 400 €`,done:()=>G.earned-(F().e0||0)>=400},
+  choix:{t:'Choisis par quoi commencer',d:'Touche cet objectif pour choisir : agrandir le labo, recruter un dealer ou acheter un véhicule.',done:()=>!!F().choice},
+  c_labo:{t:'Agrandis ton labo',d:'À l’ordinateur du labo (à gauche de l’entrée), onglet Améliorations : « Agrandir le labo ».',tg:labTgt,prog:()=>fmt(G.cash)+' / '+fmt(upCost(UPS[0])),done:()=>lv('labo')>=1},
+  c_dealer:{t:'Recrute un dealer de rue',d:'Au bar (les candidats sont assis aux tables) ou à l’ordinateur du labo, onglet Équipe.',tg:()=>shopTgt('bar'),prog:()=>fmt(G.cash)+' / '+fmt(tmCost(TEAM[2])),done:()=>lv('dealer')>=1},
+  c_veh:{t:'Achète un deux-roues',d:'À la concession : un vélo (80 €) ou un scooter (250 €). Les voitures, elles, se paient en argent propre.',tg:()=>shopTgt('concession'),done:()=>Object.keys(G.owned).some(k=>k!=='foot'&&G.owned[k])},
+  refe2:{t:'Retourne voir El Refe',d:'Il a quelque chose à te dire.',tg:()=>npcTgt('refe'),done:()=>F().refe2},
+  vega:{t:'Va voir Madame Vega',d:'La patronne du Nord veut te rencontrer devant sa tour du Port. Traverse la rivière… et ne le dis pas à El Refe.',who:'Message de Madame Vega',say:'« Le petit de Refe ? Viens me voir. On a peut-être des choses à se dire. »',tg:()=>npcTgt('vega'),done:()=>F().vega1},
+  vega_liv:{t:'Livre les clients de Vega',d:'Trois clients de Vega, dans le Nord, attendent chacun 5 unités (cercles jaunes « Client de Vega »). Elle paie bien, et elle ne prend rien.',who:'Madame Vega',say:'« Trois clients. Pas un de moins. Je verrai ce que tu vaux. »',
+    tg:()=>{const o=orders.find(q=>q.vega);return o?{x:o.x,z:o.z,label:o.name}:null},prog:()=>`${F().vliv||0} / 3 livrés`,done:()=>(F().vliv||0)>=3},
+  tel:{t:'Achète un téléphone',d:'Dans une supérette. Avec un téléphone, les gérants t’envoient un message au lieu de venir te chercher.',who:'El Refe',say:'« Les flics écoutent les rues, pas les téléphones prépayés. Achète-toi un téléphone. »',tg:()=>shopTgt('superette'),done:()=>inv('telephone')>0},
+  equipe:{t:'Monte une équipe',d:'Recrute au moins deux personnes (dealer, jardinier ou livreur), au bar ou à l’ordinateur.',tg:()=>shopTgt('bar'),prog:()=>`${Math.min(2,crew())} / 2`,done:()=>crew()>=2},
+  variete:{t:'Débloque une nouvelle variété',d:'À la graineterie (rayon du fond) ou à l’ordinateur du labo. Les variétés chères rapportent plus.',tg:()=>shopTgt('graineterie'),done:()=>STRAINS.filter(s=>G.unlocked[s.id]).length>=3},
+  police:{t:'Sème la police',d:'Opération Lilas : les flics quadrillent le quartier, en voiture et à pied, avec des barrages. Fais-toi prendre en chasse, puis échappe-leur : cache-toi dans une boutique, ou roule vite et loin.',who:'El Refe',say:'« Un gars qui ne sait pas semer les flics, c’est un gars en prison. »',done:()=>F().escaped},
+  cash5k:{t:'Mets 5 000 € de côté',d:'Accumule 5 000 € d’argent sale.',prog:()=>fmt(G.cash)+' / 5 000 €',done:()=>G.cash>=5000},
+  refe3:{t:'Retourne voir El Refe',d:'Il a remarqué tes liasses.',tg:()=>npcTgt('refe'),done:()=>F().refe3},
+  blanch_find:{t:'Trouve le Blanchisseur',d:'Personne ne sait où il est… sauf ceux qui savent. Demande aux passants et aux commerçants (« Demander des infos »). Pas de flèche : c’est à toi de le trouver.',clue:'blanch',done:()=>F().blanchMet},
+  blanch_biz:{t:'Ouvre ta première laverie',d:'Les commerces « À VENDRE » sont dans le Sud. Pour le premier, le Blanchisseur accepte ton argent sale.',who:'Le Blanchisseur',say:'« Une laverie. Les pièces tombent, personne ne compte. »',tg:()=>{const b=BIZS.find(b=>b.type==='laverie'&&b.q==='sud');return b?{x:b.x,z:b.z,label:'Laverie à vendre'}:null},done:()=>myBiz()>=1},
+  lave5k:{t:'Blanchis 5 000 €',d:'Tes commerces transforment ton argent sale en argent propre, chaque minute. Garde du sale sur toi pour qu’ils aient de quoi laver.',prog:()=>`${fmt(Math.max(0,(G.laund||0)-(F().l0||0)))} / 5 000 €`,done:()=>(G.laund||0)-(F().l0||0)>=5000},
+  biz2:{t:'Ouvre un deuxième commerce',d:'Celui-là se paie en argent propre. Un kebab, par exemple.',tg:()=>{const b=BIZS.find(b=>!G.biz[b.id]&&bizOpenToBuy(b));return b?{x:b.x,z:b.z,label:BIZT[b.type].name}:null},prog:()=>`${myBiz()} / 2`,done:()=>myBiz()>=2},
+  voiture:{t:'Achète une voiture propre',d:'À la concession : choisis une voiture, négocie dans le bureau, et paie en argent propre.',tg:()=>shopTgt('concession'),done:()=>F().carBought},
+  banque:{t:'Mets 10 000 € à la banque',d:'Seul l’argent propre est accepté au guichet. Ce qui est au coffre ne peut pas être saisi.',tg:()=>shopTgt('banque'),prog:()=>fmt(G.bank||0)+' / 10 000 €',done:()=>(G.bank||0)>=10000},
+  blanch2:{t:'Retourne voir le Blanchisseur',d:'Il a un nom à te donner.',tg:()=>npcTgt('blanch'),done:()=>F().blanch2},
+  taupe_find:{t:'Trouve le flic infiltré',d:'Un policier mange à tous les râteliers. Demande aux passants et aux commerçants. Pas de flèche.',clue:'taupe',done:()=>F().taupeMet},
+  taupe_pay:{t:'Achète le flic',d:'Il veut 5 000 € pour te renseigner. Parle-lui.',tg:()=>npcTgt('taupe'),done:()=>F().taupePaid},
+  taupe_tip:{t:'Profite de son tuyau',d:'Il t’enverra bientôt un message sur un contrôle de police. Pendant le contrôle, vends 15 unités hors de la zone rouge.',prog:()=>ZONE?`${F().tipSold||0} / 15 unités · contrôle : ${Math.ceil(ZONE.t)} s`:'En attente de son message…',done:()=>F().tipDone},
+  biz3:{t:'Possède trois commerces',d:'Plus tu as de commerces, plus tu blanchis vite.',prog:()=>`${myBiz()} / 3`,done:()=>myBiz()>=3},
+  net50k:{t:'Pèse 50 000 €',d:'Argent sale + argent propre + banque.',prog:()=>fmt(totalMoney())+' / 50 000 €',done:()=>totalMoney()>=50000},
+  taupe2:{t:'Rendez-vous avec le flic',d:'Il a appris quelque chose sur El Refe.',tg:()=>npcTgt('taupe'),done:()=>F().taupe2},
+  guerre:{t:'Va voir Madame Vega',d:'El Refe veut maintenant 50 % de tout, tes commerces compris. Seule la patronne du Nord peut t’aider à lui tenir tête.',tg:()=>npcTgt('vega'),done:()=>F().war},
+  defend:{t:'Défends tes commerces',d:'Les hommes d’El Refe attaquent tes commerces. Va sur place et mets-les KO avant qu’ils ne cassent tout.',tg:()=>ATK?{x:ATK.x,z:ATK.z,label:'Attaque d’El Refe'}:null,prog:()=>`${F().repelled||0} / 3 attaques repoussées${ATK?` · ${Math.ceil(ATK.t)} s`:''}`,done:()=>(F().repelled||0)>=3},
+  lieut:{t:'Élimine les lieutenants d’El Refe',d:'Le flic t’a donné leurs adresses dans le Sud : Le Grec et Sacha. Ils ont des gardes.',tg:()=>{const f=FIGHTERS.find(f=>f.group==='lt'&&!f.ko&&f.name!=='Garde');return f?{x:f.x,z:f.z,label:f.name}:null},prog:()=>`${F().lieutDown||0} / 2`,done:()=>(F().lieutDown||0)>=2},
+  net150k:{t:'Pèse 150 000 €',d:'La guerre coûte cher. Remplis les caisses avant l’assaut final.',prog:()=>fmt(totalMoney())+' / 150 000 €',done:()=>totalMoney()>=150000},
+  cache:{t:'Trouve la planque d’El Refe',d:'Le flic a trouvé où il se cache : son QG du Vieux Centre. Vas-y.',tg:()=>({x:SPOT.cache.x,z:SPOT.cache.z,label:'Planque d’El Refe'}),done:()=>F().cacheFound},
+  refe_final:{t:'Tue El Refe',d:'Il est là, avec ses gardes du corps. C’est la seule façon d’effacer ta dette.',tg:()=>{const f=FIGHTERS.find(f=>f.id==='refeF');return f&&!f.ko?{x:f.x,z:f.z,label:'El Refe'}:null},prog:()=>`Déjà versé à El Refe : ${fmt(STO().paid||0)}`,done:()=>STO().dead},
+  libre:{t:'Deviens le patron des Lilas',d:'Le Sud est à toi. Le jour où Madame Vega voudra vendre le Nord, achète-le. Et atteins 10 000 000 €.',prog:()=>fmt(totalMoney())+' / 10 000 000 €',done:()=>false},
 };
-function questTarget(){const q=Q[STO().q];if(!q||!q.tg||CINE)return null;const t=q.tg();return t&&Math.hypot(t.x-P.x,t.z-P.z)>6?t:null}
+function questTarget(){const q=Q[STO().q];if(!q||!q.tg||CINE||INT)return null;const t=q.tg();return t&&Math.hypot(t.x-P.x,t.z-P.z)>6?t:null}
 function nextQuest(){
-  const s=STO(),cur=s.q;
+  const s=STO(),cur=s.q,c0=CHAP_OF[cur];
   let n;
-  if(cur==='choix')n='c_'+s.f.choice;
-  else if(cur.startsWith('c_'))n='tel';
-  else n=QORDER[qIdx(cur)+1]||'final';
-  if(n==='c_undefined')n='tel';
+  if(cur==='choix')n='c_'+(s.f.choice||'veh');
+  else if(cur.startsWith('c_'))n='refe2';
+  else n=QORDER[qIdx(cur)+1]||'libre';
   s.q=n;questStart(n);renderQuest(true);save();
+  if(CHAP_OF[n]!==c0)chapterCard(CHAP_OF[n]);
+}
+function chapterCard(n){
+  const C=CHAPTERS.find(c=>c.n===n);if(!C)return;
+  setTimeout(()=>{if(!CINE)startCine([{d:3.4,title:1,ttl:[n<6?'Chapitre '+n:'Épilogue',C.t],f(){}}],{space:INT?'int':'world',keep:1})},1200);
 }
 function questStart(q){
-  const s=STO();
-  if(q==='benef')s.f.e0=G.earned;
-  if(q==='choix')s.f.asked=0;
-  if(q==='tuer'&&!s.f.tuerIntro){s.f.tuerIntro=1;setTimeout(()=>{if(!paused())openDialog('Toi','#f3e6d6',{text:'Chaque vente, El Refe prend 30 %. Déjà '+fmt(s.paid||0)+' dans sa poche. Tant qu’il sera là, je travaillerai pour lui.',choices:[{label:'Aller régler ça',desc:'Suis la flèche jusqu’à son hall.',close:1}]},()=>{})},900)}
+  const s=STO(),f=s.f;
+  if(q==='clients5')f.s0=f.sales||0;
+  if(q==='benef')f.e0=G.earned;
+  if(q==='choix')f.asked=0;
+  if(q==='lave5k')f.l0=G.laund||0;
+  if(q==='vega_liv')spawnVegaOrders();
+  if(q==='taupe_tip'){f.tipSold=0;setTimeout(()=>tipZone(true),20000)}
+  if(q==='defend'){f.repelled=f.repelled||0;ATKT=25}
+  if(q==='lieut'){spawnLieutenants();phoneMsg('📱 Le flic infiltré','#7fd1ff','Les deux lieutenants d’El Refe : Le Grec tient un hall dans le Vieux Centre, Sacha traîne dans les Jardins. Ils ont chacun un garde. Je n’ai rien dit.')}
+  if(q==='cache'){spawnHideout();phoneMsg('📱 Le flic infiltré','#7fd1ff','El Refe a quitté son hall. Il se cache dans son QG du Vieux Centre, avec ses gardes du corps. C’est maintenant ou jamais.')}
+  if(q==='vega')phoneMsg('📱 Madame Vega',BOSSES.vega.col,'Le petit de Refe ? Viens me voir devant ma tour du Port, dans le Nord. Seul. Et ce rendez-vous ne regarde pas El Refe.');
 }
 let qChkT=0,qFlash=0;
 function questCheck(dt){
   qChkT-=dt;if(qChkT>0)return;qChkT=.25;
   const s=STO(),q=Q[s.q];if(!q||!q.done||s.q==='intro')return;
-  if(q.done()){
-    toast('Objectif atteint : '+q.t,'good');Sfx.cash();qFlash=1.2;
+  if(q.done()){toast('Objectif atteint : '+q.t,'good');Sfx.cash();qFlash=1.2;
     if(s.q==='tel')setTimeout(()=>toast('📱 Les gérants t’enverront maintenant un message au lieu de venir te voir.','good'),900);
-    nextQuest();
-  }
+    nextQuest()}
 }
 let qOpen=!MOBILE,qLast='';
 function renderQuest(force){
   const el=$('quest');if(!el)return;
   const s=STO(),q=Q[s.q],show=!!q&&started&&!CINE&&s.q!=='intro';
   vis(el,show);if(!show)return;
-  const pr=q.prog?q.prog():'',h=`${s.q}|${qOpen}|${pr}`;
+  const ch=CHAP_OF[s.q],C=CHAPTERS.find(c=>c.n===ch),idx=C.q.filter(x=>!x.startsWith('c_')||x===s.q).indexOf(s.q)+1,tot=C.q.filter(x=>!x.startsWith('c_')).length+(C.n===1?1:0);
+  let pr=q.prog?q.prog():'';
+  if(q.clue){const n=s.clue[q.clue]||0;pr=`Indices : ${n} / 3${n>=3?' · cherche dans la zone sur la carte':''}`}
+  const h=`${s.q}|${qOpen}|${pr}|${q.clue?s.clue[q.clue]:''}`;
   if(!force&&h===qLast)return;qLast=h;
+  $('qC').textContent=ch<6?`Chapitre ${ch} · ${C.t} · ${idx}/${tot}`:'Épilogue';
   $('qT').textContent=q.t;$('qD').textContent=q.d;vis($('qD'),qOpen);
-  const sy=$('qS');vis(sy,qOpen&&!!q.say);if(q.say)sy.textContent=(q.who||'')+' : '+q.say;
+  const sy=$('qS');
+  if(q.clue){const n=s.clue[q.clue]||0;vis(sy,qOpen&&n>0);sy.textContent=n?'Carnet : '+CLUES[q.clue].lines.slice(0,n).map((l,i)=>`${i+1}. ${l}`).join(' '):''}
+  else{vis(sy,qOpen&&!!q.say);if(q.say)sy.textContent=(q.who||'')+' : '+q.say}
   vis($('qP'),!!pr);$('qP').textContent=pr;
   el.classList.toggle('open',qOpen);
 }
-function questClick(){
-  if(STO().q==='choix'){askChoice();return}
-  qOpen=!qOpen;renderQuest(true);
-}
+function questClick(){if(STO().q==='choix'){askChoice();return}qOpen=!qOpen;renderQuest(true)}
 
-/* ---------- El Refe : le marché, les conseils, puis le combat ---------- */
+/* ---------- les dialogues des personnages ---------- */
 function acceptDeal(){
   const s=STO();s.cut=1;s.f.deal=1;
   bagAddProd('jardin',6);
-  const p=randRoadPoint(RF.x,RF.z,35,75),o=genOrder(p.x,p.z,1,'Un client d’El Refe');
-  o.s='jardin';o.qty=4;o.price=8;o.ttl=1e9;o.tuto=1;o.rival=false;o.d=districtAt(o.x,o.z).key;
+  const r=npcById('refe'),p=randRoadPoint(r.x,r.z,35,75),o=genOrder(p.x,p.z,1,'Un client d’El Refe');
+  o.s='jardin';o.qty=4;o.price=8;o.ttl=1e9;o.tuto=1;o.rival=false;o.d=quarterAt(o.x,o.z).key;
   save();
   return '« Bien. Tiens, 6 unités pour commencer. Un client attend au coin de la rue : va le voir. Et n’oublie jamais : 30 % pour moi. À vie. »';
 }
 function talkRefe(){
-  const s=STO(),q=s.q;
+  const s=STO(),q=s.q,col='#e0b020',ok=[{label:'OK',close:1}];
   if(q==='refe'){
     const deal={label:'Marché conclu',desc:'El Refe prendra 30 % de tout ce que tu gagnes.',fn:acceptDeal};
-    openDialog('El Refe','#e0b020',{text:'« Alors c’est toi, le gamin qu’on a mis dehors ? Écoute bien. Je t’apprends tout : faire pousser, vendre, éviter les flics. Je te file même un local. En échange, je prends 30 % de tout ce que tu gagnes. À vie. »',choices:[
-      deal,
-      {label:'30 % à vie ? C’est du vol.',desc:'Tenter de négocier.',fn:()=>({text:'« Du vol ? Le vol, c’est de dormir sur un banc avec 150 € en poche. C’est ça ou la rue, petit. »',choices:[deal]})}]},()=>{});
+    openDialog('El Refe',col,{text:'« Alors c’est toi, le gamin qu’on a mis dehors ? Écoute bien. Je t’apprends tout : faire pousser, vendre, éviter les flics. Je te file même un local, ici, dans le Sud. En échange, je prends 30 % de tout ce que tu gagnes. À vie. »',choices:[
+      deal,{label:'30 % à vie ? C’est du vol.',desc:'Tenter de négocier.',fn:()=>({text:'« Du vol ? Le vol, c’est de dormir sur un banc avec 150 € en poche. C’est ça ou la rue, petit. »',choices:[deal]})}]},()=>{});
     return}
-  if(q==='tuer'){
-    openDialog('El Refe','#e0b020',{text:`« Tiens, mon meilleur élève. Tu m’as déjà rapporté ${fmt(s.paid||0)}. Tu viens payer ma part ? »`,choices:[
-      {label:'Régler ça une bonne fois pour toutes',desc:'Il ne se laissera pas faire. Frappe avec 👊 ou F.',fn:()=>{startRefeFight();return '« Toi ? Me régler ? Viens, petit. Viens. »'}},
-      {label:'Rien. Je passais.',desc:'Il continue de prendre 30 %.',close:1}]},()=>{});
+  if(q==='refe2'){
+    openDialog('El Refe',col,{text:refeLine()+' « Écoute bien. Les bleus lancent une opération sur les Lilas : patrouilles, barrages, flics à pied. Ça va chauffer pendant des semaines. Achète-toi un téléphone, monte une équipe, et apprends à les semer. »',choices:[{label:'Compris',fn:()=>{s.f.refe2=1;return '« Et souviens-toi : où que tu ailles, 30 % pour moi. »'}}]},()=>{});
     return}
-  const lines=storyAt('benef')?['« 30 %, petit. À chaque vente. C’est le prix de ce que je t’ai appris. »','« Les flics tournent plus le jour. La nuit, c’est à nous. »','« Garde ton sac léger quand une patrouille passe. »']
-    :storyAt('labo')?['« Ton labo t’attend. Plante, arrose, récolte, fais sécher. »','« Le séchoir, c’est la clé. Personne n’achète de l’herbe mouillée. »']
-    :['« Le client t’attend, suis la flèche. »'];
-  openDialog('El Refe','#e0b020',{text:pick(lines),choices:[{label:'OK',close:1}]},()=>{});
+  if(q==='refe3'){
+    openDialog('El Refe',col,{text:`« Tu as ${fmt(G.cash)} en liasses dans les poches. C’est de l’argent sale : pas de voiture, pas de commerce, pas de banque avec ça. Il te faut le Blanchisseur. Je ne sais pas où il se planque, ce vieux renard. Demande autour de toi. »`,choices:[{label:'Je vais le trouver',fn:()=>{s.f.refe3=1;return '« Et quand il aura lavé ton argent, il sera propre… et toujours à 30 % pour moi. »'}}]},()=>{});
+    return}
+  if(war()){openDialog('El Refe',col,{text:refeWarLine(),choices:ok},()=>{});return}
+  openDialog('El Refe',col,{text:refeLine(),choices:[{label:'Combien je t’ai rapporté ?',fn:()=>`« ${fmt(s.paid||0)}. Et ce n’est qu’un début. »`},{label:'Partir',close:1}]},()=>{});
 }
-function startRefeFight(){RF.fight=true;RF.hp=Math.max(RF.hp,60);RF.cd=1.2;threat=true;toast('Le combat contre El Refe commence. Frappe-le (👊 ou F) et reste mobile.','bad')}
-function refePunched(){
-  const s=STO();
-  if(!refeHere()||RF.ko)return;
-  if(s.q!=='tuer'){floater(RF.x,RF.z-2,'« Encore une fois et t’es mort. »','#ffd24a',false);RF.talkT=2;return}
-  if(!RF.fight)startRefeFight();
-  const dmg=Math.round(R(13,19));RF.hp-=dmg;RF.stag=.25;const fx=RF.x-P.x,fz=RF.z-P.z,l=Math.hypot(fx,fz)||1;RF.x+=fx/l*1.1;RF.z+=fz/l*1.1;
-  CAM.shake=Math.max(CAM.shake,3);Sfx.crash(.3);floater(RF.x,RF.z-2.5,'-'+dmg,'#ffd24a',false);
-  if(RF.hp<=0)refeDown();
+function spawnVegaOrders(){
+  const v=npcById('vega');orders.filter(o=>o.vega).forEach(removeOrder);
+  const s=STRAINS.filter(x=>G.unlocked[x.id]).sort((a,b)=>a.price-b.price)[0];
+  const done=F().vliv||0;
+  for(let i=done;i<3;i++){const p=randRoadPoint(v.x,v.z,90,320);const o=genOrder(p.x,p.z,1.2,'Client de Vega');o.s=s.id;o.qty=5;o.ttl=1e9;o.vega=1;o.price=Math.round(s.price*1.3*10)/10}
+}
+function talkVega(){
+  const s=STO(),q=s.q,col=BOSSES.vega.col,ok=[{label:'OK',close:1}];
+  if(q==='vega'){
+    openDialog('Madame Vega',col,{text:'« Alors c’est toi, le petit de Refe. Ici, c’est le Nord : mon trottoir, mes règles. Refe te prend 30 % ? Moi, je ne prends rien à ceux qui travaillent bien. Trois de mes clients attendent de la marchandise. Montre-moi ce que tu vaux. »',choices:[{label:'C’est comme si c’était fait',fn:()=>{s.f.vega1=1;G.ally.vega=.0001;G.rel.vega=Math.max(G.rel.vega||0,10);return '« Et pas un mot à Refe. Il n’aime pas qu’on traverse la rivière. »'}}]},()=>{});return}
+  if(q==='guerre'){
+    openDialog('Madame Vega',col,{text:'« Je sais. Refe veut 50 % de tout, tes commerces compris. Trente ans que je le connais : il finit toujours par dévorer ceux qu’il a nourris. Je t’aide. Les siens ne passeront pas la rivière. Mais c’est à toi de le finir. »',choices:[{label:'Marché conclu',fn:()=>{startWar();return '« Défends tes commerces. Et quand ce sera le moment, finis-en avec lui. »'}}]},()=>{});return}
+  openDialog('Madame Vega',col,{text:vegaLine(),choices:ok},()=>{});
+}
+function startWar(){
+  const s=STO();s.f.war=1;delete G.ally.refe;G.rel.refe=-100;G.ally.vega=.0001;G.rel.vega=Math.max(G.rel.vega||0,30);
+  toast('Guerre ouverte avec El Refe : ses voitures dorées te tireront dessus dans le Sud. Madame Vega te couvre dans le Nord.','bad');
+  setupGangs();save();
+}
+function talkBlanch(){
+  const s=STO(),q=s.q,col='#f4f1ea';
+  if(!s.f.blanchMet){
+    if(q!=='blanch_find'||(s.clue.blanch||0)<1){openDialog('Homme en blanc',col,{text:pk(['« Pardon ? Je ne vous connais pas. »','« Je lis mon journal, jeune homme. »','« Il fait beau, n’est-ce pas ? »']),choices:[{label:'Partir',close:1}]},()=>{});return}
+    openDialog('Homme en blanc',col,{text:'« Vous me cherchiez, je crois. On m’a dit qu’un jeune homme posait des questions sur moi dans tout le Sud. Asseyez-vous. »',choices:[{label:'C’est El Refe qui m’envoie',fn:()=>{s.f.blanchMet=1;s.f.firstBizDirty=1;
+      return '« Refe… Il vous prend combien ? Trente pour cent ? Il ne change pas. Écoutez-moi : l’argent sale, il faut le faire passer dans un commerce. Une laverie, un kebab, un garage. Le commerce encaisse, déclare, paie ses impôts, et votre argent ressort propre. Pour le premier, je m’occupe des papiers : vous pourrez le payer en liquide. Ensuite, ce sera de l’argent propre, comme tout le monde. »'}}]},()=>{});
+    return}
+  if(q==='blanch2'){openDialog('Le Blanchisseur',col,{text:'« Vous apprenez vite. Un conseil : tôt ou tard, la police s’intéressera à vos commerces. Il y a un flic, dans le Nord, qui mange à tous les râteliers. Il en sait plus sur Refe que Refe lui-même. Trouvez-le avant qu’il ne vous trouve. Je ne connais pas son nom. Personne ne le connaît. »',choices:[{label:'Je vais le trouver',fn:()=>{s.f.blanch2=1;return '« Bonne chance. Et changez de chemise, vous avez une tache. »'}}]},()=>{});return}
+  const lim=Math.max(0,20000-(s.f.blDay||0));
+  openDialog('Le Blanchisseur',col,{text:blLine()+` Je peux aussi laver à la main : 35 % de commission, ${fmt(lim)} au maximum pour l’instant.`,choices:[
+    ...[1000,5000,20000].map(a=>({label:`Laver ${fmt(a)} (tu récupères ${fmt(a*.65)})`,off:G.cash<a||lim<a,fn:()=>{G.cash-=a;G.clean=(G.clean||0)+a*.65;G.laund=(G.laund||0)+a;s.f.blDay=(s.f.blDay||0)+a;Sfx.cash();return '« Voilà. Comme neuf. »'}})),
+    {label:'Partir',close:1}]},()=>{});
+}
+function talkTaupe(){
+  const s=STO(),q=s.q,col='#7fd1ff';
+  if(!s.f.taupeMet){
+    if(q!=='taupe_find'||(s.clue.taupe||0)<1){openDialog('Un type qui attend le bus',col,{text:pk(['« Le 42 ? Il passe quand il veut. »','« Je ne suis pas d’ici. »','« Tu veux quoi ? »']),choices:[{label:'Partir',close:1}]},()=>{});return}
+    openDialog('Un type qui attend le bus',col,{text:'« Tu m’as trouvé. Bravo. Ne me regarde pas, regarde la route. Oui, je suis flic. Et oui, je peux t’être utile. »',choices:[{label:'Combien ?',fn:()=>{s.f.taupeMet=1;return '« 5 000 €. En liquide. Et ensuite, je te préviens des contrôles, des descentes, de ce que prépare le commissaire. Tu me trouveras ici. »'}}]},()=>{});return}
+  if(q==='taupe_pay'){openDialog('Le flic infiltré',col,{text:'« Alors, ces 5 000 € ? »',choices:[{label:'Payer 5 000 € (sale)',off:G.cash<5000,fn:()=>{G.cash-=5000;s.f.taupePaid=1;TIPT=60;return '« Marché conclu. Garde ton téléphone allumé. »'}},{label:'Plus tard',close:1}]},()=>{});return}
+  if(q==='taupe2'){openDialog('Le flic infiltré',col,{text:'« Écoute bien. El Refe sait tout : tes commerces, le Blanchisseur, tes rendez-vous avec Vega. Il va exiger 50 % de tout ce que tu gagnes, et si tu refuses, il te balance à mes collègues. La seule qui peut t’aider, c’est Vega. Va la voir. »',choices:[{label:'Merci',fn:()=>{s.f.taupe2=1;return '« Je n’ai rien dit. »'}}]},()=>{});return}
+  const ch=[{label:'Effacer ma chaleur (2 000 €)',off:G.cash<2000||G.heat<5,fn:()=>{G.cash-=2000;G.heat=0;return '« C’est fait. Personne ne te cherche, pour l’instant. »'}},
+    {label:'Effacer un casier (8 000 €)',off:G.cash<8000||!G.strikes,fn:()=>{G.cash-=8000;G.strikes--;return '« Un dossier a disparu. »'}},
+    {label:'Les positions des patrouilles (500 €)',off:G.cash<500,fn:()=>{G.cash-=500;REVEAL=90;return '« Regarde ta carte. Tu as une minute et demie. »'}},
+    {label:'Partir',close:1}];
+  openDialog('Le flic infiltré',col,{text:tpLine(),choices:ch},()=>{});
+}
+function askChoice(){
+  const s=STO();if(s.q!=='choix'||paused())return;s.f.asked=1;
+  const c=(id,label,desc)=>({label,desc,fn:()=>{s.f.choice=id;return id==='labo'?'« Bon choix. Plus de place, plus de pots, plus de récolte. Va à l’ordinateur du labo. »':id==='dealer'?'« Un dealer, ça vend pendant que tu dors. Passe au bar, il y a du monde qui cherche du boulot. »':'« Avec des roues, tu feras trois fois plus de clients. File à la concession. »'}});
+  openDialog('El Refe','#e0b020',{text:'Un message d’El Refe : « Tu as fait tes premiers billets. Maintenant, tu choisis : tu investis dans quoi ? »',choices:[
+    c('labo','Agrandir le labo',`Plus de place pour les machines · ${fmt(upCost(UPS[0]))}`),
+    c('dealer','Recruter un dealer de rue',`Il vend ta réserve à ta place · ${fmt(tmCost(TEAM[2]))}`),
+    c('veh','Acheter un deux-roues','Vélo 80 €, scooter 250 €, à la concession')]},()=>{});
 }
 function refeDown(){
-  const s=STO();RF.ko=true;RF.fight=false;s.dead=1;s.cut=0;
-  CAM.shake=6;Sfx.crash(.7);floater(RF.x,RF.z-2.5,'El Refe','#ff5a40',true);
-  G.heat=Math.max(G.heat,65);
-  toast('El Refe est mort. Plus personne ne prend 30 % sur tes ventes.','good');
-  setTimeout(()=>toast('Les coups de feu ont alerté la police : file d’ici.','bad'),2500);
-  save();
-}
-function updRefe(dt){
-  if(!RF||!refeHere())return;
-  RF.ph+=dt*2;RF.talkT=Math.max(0,RF.talkT-dt);RF.punch=Math.max(0,RF.punch-dt*2.6);RF.stag=Math.max(0,(RF.stag||0)-dt);
-  if(RF.ko)return;
-  const d=Math.hypot(P.x-RF.x,P.z-RF.z);
-  if(!RF.fight){
-    // reste devant son hall, regarde le joueur quand il approche
-    const hx=RF.hx-RF.x,hz=RF.hz-RF.z,hd=Math.hypot(hx,hz);
-    if(hd>.3){RF.x+=hx/hd*Math.min(hd,3*dt);RF.z+=hz/hd*Math.min(hd,3*dt);RF.th=Math.atan2(hx,hz);RF.sp=3}else RF.sp=0;
-    if(d<14&&hd<.3)RF.th=Math.atan2(P.x-RF.x,P.z-RF.z);
-    if(RF.hp<100)RF.hp=Math.min(100,RF.hp+dt*4);
-    return}
-  if(paused())return;
-  threat=true;
-  if(d>45||inLab()||P.def.kind!=='foot'&&d>20){RF.fight=false;toast('El Refe rentre dans son hall. « La prochaine fois, je t’attends. »');return}
-  RF.th=Math.atan2(P.x-RF.x,P.z-RF.z);
-  if(d>2.3&&!(RF.stag>0)){const s=4.2;RF.x+=Math.sin(RF.th)*s*dt;RF.z+=Math.cos(RF.th)*s*dt;RF.sp=s;collide(RF,.45)}else RF.sp=0;
-  RF.cd-=dt;
-  if(d<2.9&&RF.cd<=0){
-    RF.cd=R(.9,1.3);RF.punch=1;
-    const dmg=P.def.kind==='foot'?R(8,12):4;G.hp-=dmg;CAM.shake=Math.max(CAM.shake,4);Sfx.crash(.35);floater(P.x,P.z-2.5,'-'+Math.round(dmg)+' vie','#ff5a40',false);
-    if(G.hp<=10){
-      G.hp=35;RF.fight=false;RF.hp=100;const loss=Math.floor(G.cash*.1);G.cash-=loss;
-      openDialog('El Refe','#e0b020',{text:`Tu te réveilles sur le trottoir. El Refe a pris ${fmt(loss)} dans tes poches. « Recommence, et je ne serai pas aussi gentil. »`,choices:[{label:'Se relever',desc:'Reviens plus fort : achète un meilleur sac, reprends des forces, et retente ta chance.',close:1}]},()=>{});
-    }
-  }
+  const s=STO();s.dead=1;s.cut=0;G.retired.refe=1;G.own.sud='you';
+  CAM.shake=6;Sfx.crash(.7);G.heat=Math.max(G.heat,70);
+  toast('El Refe est mort. Ta dette est effacée. Le Sud est à toi.','good');save();
+  setTimeout(()=>startCine([
+    {d:3.4,nar:'Le roi du Sud est tombé. Les liasses, les trottoirs, les dettes : tout change de main ce soir.',f(){}},
+    {d:3.6,who:'Madame Vega',txt:'« Le Sud est à toi. Le Nord reste à moi. On sera de bons voisins… n’est-ce pas ? »',f(){}},
+    {d:3,title:1,ttl:['Fin','Le patron des Lilas'],f(){}}],{space:'world',keep:1}),2200);
 }
 
-/* ---------- la cinématique d'intro ---------- */
+/* ---------- combats : coups de poing contre les personnages de l'histoire ---------- */
+function fighterHit(f){
+  if(f.ko)return;
+  if(!f.fight){FIGHTERS.filter(o=>o.group&&o.group===f.group&&!o.ko).forEach(o=>{o.fight=true;o.cd=1});f.fight=true;f.cd=1;toast(f.boss?'El Refe se jette sur toi !':`${f.name} se bat !`,'bad')}
+  const dmg=Math.round(R(13,19));f.hp-=dmg;f.stag=.25;const fx=f.x-P.x,fz=f.z-P.z,l=Math.hypot(fx,fz)||1;f.x+=fx/l*1.1;f.z+=fz/l*1.1;
+  CAM.shake=Math.max(CAM.shake,3);Sfx.crash(.3);floater(f.x,f.z-2.5,'-'+dmg,'#ffd24a',false);
+  if(f.hp<=0){f.ko=true;f.fight=false;floater(f.x,f.z-2.5,'KO','#ff5a40',true);if(f.onDown)f.onDown(f)}
+}
+function updFighters(dt){
+  let fighting=false;
+  for(const f of FIGHTERS){
+    f.punch=Math.max(0,f.punch-dt*2.6);f.stag=Math.max(0,f.stag-dt);f.ph+=f.sp*dt*1.6;
+    if(f.ko)continue;
+    const d=Math.hypot(P.x-f.x,P.z-f.z);
+    if(!f.fight){
+      const hx=f.hx-f.x,hz=f.hz-f.z,hd=Math.hypot(hx,hz);
+      if(hd>.3){f.x+=hx/hd*Math.min(hd,3*dt);f.z+=hz/hd*Math.min(hd,3*dt);f.th=Math.atan2(hx,hz);f.sp=3}else{f.sp=0;if(d<16)f.th=Math.atan2(P.x-f.x,P.z-f.z)}
+      if(f.hp<f.max)f.hp=Math.min(f.max,f.hp+dt*5);
+      if(d<f.aggro&&!inLab()&&!INT&&P.def.kind==='foot'&&!paused()){FIGHTERS.filter(o=>o.group===f.group&&!o.ko).forEach(o=>{o.fight=true;o.cd=1.2});toast(`${f.name} t’a reconnu !`,'bad')}
+      continue}
+    if(paused()||INT)continue;
+    fighting=true;
+    if(d>f.leash||inLab()){f.fight=false;continue}
+    f.th=Math.atan2(P.x-f.x,P.z-f.z);
+    if(d>2.3&&!(f.stag>0)){const s=P.def.kind==='foot'?4.4:0;f.x+=Math.sin(f.th)*s*dt;f.z+=Math.cos(f.th)*s*dt;f.sp=s;collide(f,.45)}else f.sp=0;
+    f.cd-=dt;
+    if(d<2.9&&f.cd<=0&&P.def.kind==='foot'){
+      f.cd=R(.9,1.4);f.punch=1;const dmg=R(f.dmg*.8,f.dmg*1.2);G.hp-=dmg;CAM.shake=Math.max(CAM.shake,4);Sfx.crash(.35);floater(P.x,P.z-2.5,'-'+Math.round(dmg)+' vie','#ff5a40',false);
+      if(G.hp<=10)knockedOut(f);
+    }
+  }
+  if(fighting)threat=true;
+}
+function knockedOut(f){
+  G.hp=35;const loss=Math.floor(G.cash*.1);G.cash-=loss;
+  for(const o of FIGHTERS)if(o.group===f.group){o.fight=false;if(!o.ko)o.hp=o.max}
+  const [x,z]=[P.x+R(-3,3),P.z+R(-3,3)];if(pointFree(x,z,.5)){P.x=x;P.z=z}
+  openDialog(f.name,'#ff7a5a',{text:`Tu te réveilles sur le trottoir, la tête qui tourne. On t’a pris ${fmt(loss)}. Reprends des forces avant d’y retourner.`,choices:[{label:'Se relever',close:1}]},()=>{});
+}
+/* ---------- attaques du Nord sur tes commerces (chapitre 5) ---------- */
+let ATK=null,ATKT=0;
+function updAttacks(dt){
+  if(STO().q!=='defend'||paused())return;
+  if(!ATK){ATKT-=dt;if(ATKT>0)return;
+    const own=BIZS.filter(b=>G.biz[b.id]);const b=own.length?pick(own):{x:LAB.sh.door.x,z:LAB.sh.door.z,id:null,nx:0,nz:1,tx:1,tz:0,fx:LAB.sh.door.x,fz:LAB.sh.door.z};
+    const [x,z]=spotAt(b,3.5,0);ATK={x,z,b,t:150};FIGHTERS=FIGHTERS.filter(f=>f.group!=='atk');
+    for(const t of [-1.6,1.6])addFighter({id:'atk'+t,name:'Homme de Refe',look:{...LOOKS.nord,shirt:pick([0xc9a02a,0x8a6a1a,0x1d1d20])},x:x+b.tx*t,z:z+b.tz*t,hp:55,max:55,dmg:7,group:'atk',aggro:14,leash:80});
+    phoneMsg('📱 Madame Vega',BOSSES.vega.col,`Les hommes de Refe sont devant ${b.id?'ta '+BIZT[G.biz[b.id].type].name.toLowerCase():'ton labo'} ! Vas-y, vite, avant qu’ils ne cassent tout.`);
+    return}
+  ATK.t-=dt;
+  const left=FIGHTERS.filter(f=>f.group==='atk'&&!f.ko).length;
+  if(!left){F().repelled=(F().repelled||0)+1;toast(`Attaque repoussée (${F().repelled}/3).`,'good');ATK=null;ATKT=R(70,120);FIGHTERS=FIGHTERS.filter(f=>f.group!=='atk');return}
+  if(ATK.t<=0){
+    const loss=Math.floor(G.cash*.1);G.cash-=loss;if(ATK.b.id&&G.biz[ATK.b.id])G.biz[ATK.b.id].closed=180;
+    toast(`Trop tard : les hommes de Refe ont tout cassé${ATK.b.id?', le commerce est fermé 3 minutes':''} et pris ${fmt(loss)}.`,'bad');
+    ATK=null;ATKT=R(60,100);FIGHTERS=FIGHTERS.filter(f=>f.group!=='atk');
+  }
+}
+/* ---------- le flic infiltré : tuyaux par téléphone ---------- */
+let TIPT=0,ZONE=null,REVEAL=0,RAID=null,raidT=600,opT=40;
+function tipZone(forQuest){
+  const p=randRoadPoint(P.x,P.z,120,260),q=quarterAt(p.x,p.z),zn=districtAt(p.x,p.z).name;
+  ZONE={x:p.x,z:p.z,r:95,t:forQuest?150:120,q:!!forQuest};
+  phoneMsg('📱 Le flic infiltré','#7fd1ff',`Contrôle de police dans ${zn} (${q.name}) pendant ${Math.round(ZONE.t/60*10)/10} min. Zone rouge sur ta carte : n’y vends rien, n’y passe pas avec ton sac plein.${forQuest?' Pendant ce temps, vends ailleurs : la police est occupée.':''}`);
+}
+function updTips(dt){
+  const s=STO();
+  if(ZONE){ZONE.t-=dt;const inZ=Math.hypot(P.x-ZONE.x,P.z-ZONE.z)<ZONE.r;
+    if(inZ&&!INT&&!inLab()&&bagTot()>0&&!paused())G.heat=Math.min(100,G.heat+6*dt);
+    if(ZONE.t<=0){if(ZONE.q&&s.q==='taupe_tip'&&!s.f.tipDone){toast('Le contrôle est terminé, mais tu n’as pas assez vendu. Il t’enverra un autre tuyau.','bad');setTimeout(()=>tipZone(true),30000)}ZONE=null}}
+  REVEAL=Math.max(0,REVEAL-dt);
+  if(opLilas()&&!ZONE&&!paused()){opT-=dt;if(opT<=0){opT=R(110,170);const p=randRoadPoint(P.x,P.z,110,240);ZONE={x:p.x,z:p.z,r:80,t:100,q:false};toast(`Opération Lilas : barrage de police dans ${districtAt(p.x,p.z).name}. Zone rouge sur la carte : évite-la avec ton sac plein.`,'bad')}}
+  if(s.f.taupePaid&&!s.dead&&s.q!=='taupe_tip'){TIPT-=dt;if(TIPT<=0){TIPT=R(150,240);
+    const r=Math.random();
+    if(r<.35)tipZone(false);
+    else if(r<.65&&!RAID){RAID={t:120,warned:1};phoneMsg('📱 Le flic infiltré','#7fd1ff','Descente prévue sur ton labo dans 2 minutes. Vide la réserve : remplis ton sac et va vendre ailleurs.')}
+    else{REVEAL=90;phoneMsg('📱 Le flic infiltré','#7fd1ff','Je t’envoie les positions de toutes les patrouilles. Regarde ta carte : tu as une minute et demie.')}}}
+  // descentes sur le labo (à partir du chapitre 3), annoncées seulement si tu as acheté le flic
+  if(storyAt('blanch_find')&&!RAID){raidT-=dt;if(raidT<=0){raidT=R(500,800);if(Math.random()<.5)RAID={t:s.f.taupePaid?120:2,warned:s.f.taupePaid};if(RAID&&RAID.warned)phoneMsg('📱 Le flic infiltré','#7fd1ff','Descente prévue sur ton labo dans 2 minutes. Vide la réserve !')}}
+  if(RAID){RAID.t-=dt;if(RAID.t<=0){
+    const n=tot()+rawTot();
+    if(n>0){let lost=0;for(const v of STRAINS){const a=Math.floor((G.stock[v.id]||0)*.6),b=Math.floor((G.raw[v.id]||0)*.6);G.stock[v.id]-=a;G.raw[v.id]=(G.raw[v.id]||0)-b;lost+=a+b}
+      toast(`Descente de police au labo : ${lost} unités saisies dans la réserve.${RAID.warned?'':' Si seulement quelqu’un t’avait prévenu…'}`,'bad')}
+    else toast('Descente de police au labo : la réserve était vide. Ils repartent bredouilles.','good');
+    RAID=null;save()}}
+}
+/* ---------- téléphone ---------- */
+const PHONE=[];
+function phoneMsg(from,col,text){
+  if(inv('telephone')>0){PHONE.push({from,col,text});if(PHONE.length>6)PHONE.shift();toast(`${from} : nouveau message.`);Sfx.alert();phoneBtn()}
+  else toast(from.replace('📱 ','')+' : '+text);
+}
+function phoneBtn(){const b=$('bPhone');if(!b)return;vis(b,inv('telephone')>0);$('phN').textContent=PHONE.length||'';b.classList.toggle('ring',PHONE.length>0)}
+function readPhone(){
+  if(!PHONE.length){openDialog('📱 Téléphone','#7fd1ff',{text:'Aucun nouveau message.',choices:[{label:'Fermer',close:1}]},()=>{});return}
+  const m=PHONE.shift();phoneBtn();
+  if(m.boss){if(G.retired[m.boss]){readPhone();return}openDialog('📱 '+BOSSES[m.boss].name,BOSSES[m.boss].col,pickScenario(m.boss),null);curTalk.boss=1;return}
+  openDialog(m.from,m.col,{text:m.text,choices:[{label:'OK',close:1}]},()=>{});
+}
+$('bPhone').onclick=()=>{if(started&&!ended&&!paused())readPhone()};
+{const _sm=startMeeting;startMeeting=function(){
+  if(!storyAt('vega')){meetT=60;return}
+  if(inv('telephone')>0){
+    const cand=BIDS.filter(id=>!G.retired[id]&&id!=='refe');if(!cand.length){meetT=9999;return}
+    const id=pick(cand);if(!PHONE.some(m=>m.boss===id)){PHONE.push({boss:id,from:'📱 '+BOSSES[id].name});toast(`📱 Nouveau message de ${BOSSES[id].name}.`);Sfx.alert();phoneBtn()}
+    meetT=R(110,180);return}
+  _sm();
+}}
+
+/* ---------- la police : beaucoup de patrouilles, en voiture et à pied ---------- */
+const COP_LOOK={skin:0xe3b895,shirt:0x1f2e4a,pants:0x1a2236,shoe:0x111111,hair:0x16110e,cap:0x1a2236};
+let FCOPS=[];
+updCops=function(dt){
+  const carrying=bagTot()>0||M,night=TOD.n,op=opLilas();
+  const patrol=Math.max(2,Math.round((op?9:5)*(1-.3*night)))+(G.heat>=40?1:0);
+  const chase=HIDE?0:(carrying||G.heat>=60)?Math.min(6,Math.floor(G.heat/18*(1.15-.5*night))):0;
+  const want=patrol+chase;
+  spawnT-=dt;
+  if(cops.length<want&&spawnT<=0){const nc=cops.filter(c=>!c.calm).length<chase,p=randRoadPoint(P.x,P.z,nc?170:80,nc?280:230),a=mkAI({k:'sedan',c:0xf2f2f4,cop:1},p.x,p.z,R(0,6.28),2.3);a.catch=0;a.calm=true;a.path=[];cops.push(a);spawnT=chase>cops.filter(c=>!c.calm).length?2.5:3}
+  const ord=cops.slice().sort((a,b)=>Math.hypot(a.x-P.x,a.z-P.z)-Math.hypot(b.x-P.x,b.z-P.z));
+  ord.forEach((c,i)=>{const w=i<chase;if(c.calm&&w){c.path=[];c.t=0}c.calm=!w});
+  let chasing=0;
+  for(const c of cops.slice()){
+    const d=Math.hypot(P.x-c.x,P.z-c.z);
+    if((cops.length>want&&d>160)||d>520){cops=cops.filter(q=>q!==c);continue}
+    if(c.calm||HIDE){c.catch=0;
+      if(!c.path.length){const p=randRoadPoint(P.x,P.z,30,200);c.path=lanePath([c.x,c.z],pathTo(c.x,c.z,p.x,p.z))}
+      followPath(c,dt,HIDE?26:19);continue}
+    chasing++;
+    c.t-=dt;if(c.t<=0){c.t=.8;c.path=pathTo(c.x,c.z,P.x,P.z)}
+    const vt=Math.min(54+G.heat*.22,78)+(M?8:0);
+    if(d<45)aiMove(c,P.x,P.z,dt,vt);else followPath(c,dt,vt);
+    if(d<6.5&&!inLab())c.catch+=dt*(P.v<8?2:1);else c.catch=Math.max(0,c.catch-dt*2);
+    if(c.catch>1.6){arrest();return}
+  }
+  // semer la police : une poursuite qui se termine sans arrestation
+  const s=STO();if(chasing)s.f.wasChased=1;else if(s.f.wasChased&&G.heat<35){s.f.wasChased=0;s.f.escaped=1;if(s.q==='police')toast('Tu as semé la police !','good')}
+  updFootCops(dt);
+};
+function updFootCops(dt){
+  const want=opLilas()?(MOBILE?8:12):(MOBILE?4:6);let tries=0;
+  while(FCOPS.length<want&&tries++<6){
+    const n=RN[Math.floor(Math.random()*RN.length)],d=Math.hypot(n.x-P.x,n.z-P.z);if(d>260||d<50)continue;
+    const rd=ROADS[n.r],side=Math.random()<.5?1:-1,sw=(rd.w/2+2.4)*side,q0=roadPos(n.r,rd.cum[n.k],sw);{const m=maskAt(q0[0],q0[1]);if(m===2||m===4)continue}
+    const c={r:n.r,sw,s:rd.cum[n.k],dir:Math.random()<.5?1:-1,sp:1.5,ph:0,x:q0[0],z:q0[1],th:0,run:0,grab:0};
+    FCOPS.push(c,Object.assign({},c,{off:1.1}));
+  }
+  for(let i=FCOPS.length-1;i>=0;i--){const c=FCOPS[i],d=Math.hypot(P.x-c.x,P.z-c.z);
+    if(d>320){FCOPS.splice(i,1);continue}
+    const hot=G.heat>=60&&d<45&&P.def.kind==='foot'&&!HIDE&&!inLab();
+    if(hot){c.run=1;c.th=Math.atan2(P.x-c.x,P.z-c.z);const s=8.4;c.x+=Math.sin(c.th)*s*dt;c.z+=Math.cos(c.th)*s*dt;c.ph+=s*dt*1.6;c.v=s;collide(c,.45);
+      if(d<1.8){c.grab+=dt;if(c.grab>1.2){FCOPS.length=0;arrest();return}}else c.grab=Math.max(0,c.grab-dt)}
+    else{if(c.run){c.run=0;continue}c.v=c.sp;c.s+=c.dir*c.sp*dt;c.ph+=c.sp*dt*3.6;const rd=ROADS[c.r];if(!rd.closed&&(c.s<0||c.s>rd.len)){c.dir=-c.dir;c.s=clamp(c.s,0,rd.len)}
+      const q=roadPos(c.r,c.s,c.sw+(c.off||0));c.x=q[0];c.z=q[1];c.th=Math.atan2(q[2]*c.dir,q[3]*c.dir)}}
+}
+/* chapitre 2 : opération de police sur les Lilas (beaucoup plus de flics, barrages) */
+const opLilas=()=>storyAt('tel')&&!storyAt('blanch_find');
+const witness=r=>cops.some(c=>c.calm&&Math.hypot(c.x-P.x,c.z-P.z)<r)||FCOPS.some(c=>Math.hypot(c.x-P.x,c.z-P.z)<r*.6);
+let copSeenT=0;
+const copVisible=c=>REVEAL>0||!c.calm||Math.hypot(c.x-P.x,c.z-P.z)<170;
+
+/* ---------- raccords : ventes (30 % pour El Refe), labo, combats, cibles ---------- */
+function refeTake(before,where){
+  const s=STO(),gain=G.cash-before;
+  if(!s.cut||s.dead||gain<=0)return;
+  const c=Math.round(gain*REFE_CUT);G.cash-=c;G.earned-=c;s.paid=(s.paid||0)+c;
+  if(where)floater(where.x,where.z-4,'-'+fmt(c)+' El Refe','#ff9a7a',false);
+}
+{const _sale=sale;sale=function(o,cut,who){
+  const b=G.cash,n0=bagTot(),ok=_sale(o,cut,who);
+  if(ok){refeTake(b,o);
+    if(who==='toi'){const s=STO();s.f.sale1=1;s.f.sales=(s.f.sales||0)+1;if(o.vega)s.f.vliv=(s.f.vliv||0)+1;
+      if(ZONE&&s.q==='taupe_tip'&&Math.hypot(o.x-ZONE.x,o.z-ZONE.z)>ZONE.r){s.f.tipSold=(s.f.tipSold||0)+(n0-bagTot());if(s.f.tipSold>=15)s.f.tipDone=1}
+      if(storyAt('vega')&&witness(45)&&copSeenT<=0){copSeenT=20;G.heat=Math.max(G.heat,62);toast('Une patrouille t’a vu vendre ! Elle te prend en chasse.','bad')}}}
+  return ok}}
+{const _eco=economy;economy=function(dt){const b=G.cash;_eco(dt);refeTake(b,null);copSeenT-=dt}}
+{const _um=updMission;updMission=function(dt){const b=G.cash,had=!!M;_um(dt);if(had&&!M&&G.cash>b){STO().f.gofast=1;refeTake(b,P)}}}
+{const _w=lWater;lWater=function(it){const c=G.can;_w(it);if(G.can<c)STO().f.water=1}}
+{const _h=lHarvest;lHarvest=function(it,q){const r=_h(it,q);if(r)STO().f.harvest=1;return r}}
+{const _l=lLoad;lLoad=function(it,q){const r=_l(it,q);if(r)STO().f.dry=1;return r}}
+{const _t=bagTake;bagTake=function(){const b=bagTot();_t();if(bagTot()>b)STO().f.take=1}}
+{const _d=doPunch;doPunch=function(){if(INT||CINE)return;_d()}}
+{const _hp=hitPed;hitPed=function(p,fx,fz){_hp(p,fx,fz);if(storyAt('vega')&&witness(50)){G.heat=Math.max(G.heat,70);toast('Des policiers t’ont vu frapper quelqu’un !','bad')}}}
+{const _c=updCombat;updCombat=function(dt){
+  const was=punchHit,on=punchT>0;_c(dt);
+  if(on&&!was&&punchHit){const fx=Math.sin(P.th),fz=Math.cos(P.th);let best=null,bd=3.6;
+    for(const f of FIGHTERS){if(f.ko)continue;const dx=f.x-P.x,dz=f.z-P.z,d=Math.hypot(dx,dz);if(d<bd&&(dx*fx+dz*fz)/(d||1)>.3){bd=d;best=f}}
+    if(best){fighterHit(best);return}
+    for(const n of SNPC){if(!n.show()||!n.noHit)continue;const dx=n.x-P.x,dz=n.z-P.z,d=Math.hypot(dx,dz);if(d<3.4&&(dx*fx+dz*fz)/(d||1)>.3){floater(n.x,n.z-2.5,n.id==='refe'?'« Encore une fois et t’es mort. »':'« Hé ! Calme-toi. »','#ffd24a',false);n.talkT=2;break}}}}}
+{const _f=findTarget;findTarget=function(){
+  if(INT){tgt=CINE||talking?null:intTarget();return}
+  _f();
+  if(!started||ended||paused()||P.def.kind!=='foot'||inLab())return;
+  if(tgt&&tgt.k==='enterlab'&&!labOpen())tgt={k:'info',label:F().deal?'Fermé à clé : vends d’abord à ton client':'Fermé à clé. Va d’abord voir El Refe.'};
+  const bz=bizTarget();if(bz&&(!tgt||tgt.k==='ped'||tgt.k==='info'))tgt=bz;
+  let bd=4.2;
+  for(const n of SNPC){if(!n.show()||!n.talk)continue;const d=Math.hypot(P.x-n.x,P.z-n.z);if(d<bd&&(!tgt||tgt.k==='ped'||tgt.k==='info'||tgt.k==='biz'||tgt.k==='npc')){bd=d;const nm=n.known&&!n.known()?n.unknown:n.name;tgt={k:'npc',n,label:'Parler : '+nm}}}
+}}
+{const _a=act;act=function(){findTarget();
+  if(INT){intAct(tgt);return}
+  if(tgt&&tgt.k==='npc'){tgt.n.talk();Sfx.click();return}
+  if(tgt&&tgt.k==='biz'){bizAct(tgt.b);Sfx.click();return}
+  _a()};$('bAct').onclick=act}
+addEventListener('keydown',e=>{if(INT&&e.key==='Escape'&&!talking&&!CINE){exitShop();e.preventDefault()}});
+
+/* ---------- cinématiques : intro devant la maison, bureau du concessionnaire, cartons de chapitre ---------- */
 const eio=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
 const seg=(k,a,b)=>clamp((k-a)/(b-a),0,1);
-function cinePos(a,t){return spotAt(SPOT.home,a,t)}
 function faceTo(ax,az,bx,bz){return Math.atan2(bx-ax,bz-az)}
+function cinePos(a,t){return spotAt(SPOT.home,a,t)}
+function startCine(beats,o){
+  o=o||{};const ac=o.actors||{};
+  const c={beats,i:0,t:0,space:o.space||'world',kind:o.kind||'',onEnd:o.onEnd,keep:o.keep,door:0,cam:null,
+    p:Object.assign({show:0,x:0,z:0,th:0,sp:0,ph:0,look:PLAYER_LOOK},ac.p||{}),npc:Object.assign({show:0,x:0,z:0,th:0,sp:0,ph:0,look:LOOKS.dad},ac.npc||{}),bag:{show:0,x:0,z:0,h:0,r:0}};
+  if(o.space==='int'){c.p.show=c.npc.show=1;c.p.x=INT.p.x;c.p.z=INT.p.z}
+  CINE=c;for(const k in keys)keys[k]=0;
+  $('hud').hidden=true;$('cine').hidden=false;cineBeat();
+  beats[0].f(c,0);applyCineCam(1);
+}
+function cineZoom(){return CINE&&CINE.space==='int'?intZoom():clamp(Math.min(VW,VH)/19,15,46)}
+function applyCineCam(snap){const c=CINE;if(!c||!c.cam)return;const z=cineZoom()*c.cam[2],k=snap?1:.12,tz=c.cam[1]+70/z;CAM.x+=(c.cam[0]-CAM.x)*k;CAM.z+=(tz-CAM.z)*k;CAM.zoom+=(z-CAM.zoom)*k}
+function cineBeat(){
+  const c=CINE,b=c.beats[c.i];if(!b)return;
+  const sub=$('cineSub'),tt=$('cineTitle');
+  vis(tt,!!b.title);vis(sub,!b.title);
+  if(b.title){const t=b.ttl||['Chapitre 1','À la rue'];tt.querySelector('small').textContent=t[0];tt.querySelector('b').textContent=t[1];tt.style.animation='none';void tt.offsetWidth;tt.style.animation=''}
+  $('cineWho').textContent=b.who||'';vis($('cineWho'),!!b.who);
+  $('cineTxt').textContent=b.txt||b.nar||'';$('cineTxt').classList.toggle('nar',!!b.nar);
+  sub.classList.remove('in');void sub.offsetWidth;sub.classList.add('in');
+  $('cineSkip').textContent=c.beats.length>1?'Passer ⏭':'Continuer';
+}
+function cineNext(){const c=CINE;if(!c)return;c.beats[c.i].f(c,1);c.i++;c.t=0;if(c.i>=c.beats.length){endCine();return}cineBeat()}
+function updCine(real){
+  const c=CINE;if(!c)return;
+  const dt=Math.min(.05,real);c.t+=dt;const b=c.beats[c.i];
+  b.f(c,Math.min(1,c.t/b.d));
+  c.p.ph+=c.p.sp*dt*1.6;c.npc.ph+=c.npc.sp*dt*1.6;
+  if(c.t>=b.d)cineNext();
+  if(CINE){applyCineCam(false);CAM.shake=Math.max(0,CAM.shake-dt*14)}
+  if(c.space==='world'){updTraffic(dt,CAM.x,CAM.z,traffic);updPeds(dt,CAM.x,CAM.z)}
+}
+function endCine(){
+  const c=CINE;if(!c)return;
+  c.shoved=c.landed=c.slam=1;
+  for(let i=c.i;i<c.beats.length;i++)c.beats[i].f(c,1);
+  CINE=null;$('cine').hidden=true;$('hud').hidden=false;
+  if(c.onEnd)c.onEnd(c);
+}
+function drawCineActors(sc){
+  const c=CINE;if(!c)return;
+  if(c.npc.show)drawHuman(c.npc.x,c.npc.z,c.npc.th,c.npc.look,c.npc.ph,c.npc.sp,sc,c.npc.mode,c.npc.punch||0);
+  if(c.p.show)drawHuman(c.p.x,c.p.z,c.p.th,c.p.look||PLAYER_LOOK,c.p.ph,c.p.sp,sc,c.p.mode,0);
+}
+/* intro : le père met son fils dehors */
 const CBEATS=[
-  {d:2.6,nar:'Les Lilas. Un jour de trop.',f(c,k){c.door=0;c.dad.show=0;c.p.show=0;c.bag.show=0;c.cam=[...cinePos(4.5-1.5*k,0),.85+.15*k]}},
+  {d:2.6,nar:'Les Lilas. Un jour de trop.',f(c,k){c.door=0;c.npc.show=0;c.p.show=0;c.bag.show=0;c.cam=[...cinePos(4.5-1.5*k,0),.85+.15*k]}},
   {d:3.6,who:'Le père',txt:'« Trois mois que tu traînes. Pas d’école, pas de boulot, rien ! »',f(c,k){
-    c.door=1;c.dad.show=1;c.p.show=1;c.bag.show=0;
+    c.door=1;c.npc.show=1;c.p.show=1;c.bag.show=0;
     const w=eio(seg(k,0,.45));const [px,pz]=cinePos(-.4+3.4*w,.5),[dx,dz]=cinePos(-.6+1.3*w,-.5);
-    c.p.x=px;c.p.z=pz;c.p.sp=k<.45?2:0;c.p.mode=undefined;c.dad.x=dx;c.dad.z=dz;c.dad.sp=k<.45?1.5:0;c.dad.mode=k>.45?'chat':undefined;
-    c.p.th=faceTo(px,pz,dx,dz);c.dad.th=faceTo(dx,dz,px,pz);c.dad.punch=0;c.cam=[...cinePos(2.4,0),1]}},
+    c.p.x=px;c.p.z=pz;c.p.sp=k<.45?2:0;c.p.mode=undefined;c.npc.x=dx;c.npc.z=dz;c.npc.sp=k<.45?1.5:0;c.npc.mode=k>.45?'chat':undefined;
+    c.p.th=faceTo(px,pz,dx,dz);c.npc.th=faceTo(dx,dz,px,pz);c.npc.punch=0;c.cam=[...cinePos(2.4,0),1]}},
   {d:2.8,who:'Toi',txt:'« Papa, attends… Je vais trouver un truc, promis. »',f(c,k){
-    const [px,pz]=cinePos(3,.5),[dx,dz]=cinePos(.7,-.5);c.p.x=px;c.p.z=pz;c.p.sp=0;c.p.mode='chat';c.dad.x=dx;c.dad.z=dz;c.dad.mode=undefined;c.dad.punch=0;
-    c.p.th=faceTo(px,pz,dx,dz);c.dad.th=faceTo(dx,dz,px,pz);c.cam=[...cinePos(2.2,0),1.08]}},
+    const [px,pz]=cinePos(3,.5),[dx,dz]=cinePos(.7,-.5);c.p.x=px;c.p.z=pz;c.p.sp=0;c.p.mode='chat';c.npc.x=dx;c.npc.z=dz;c.npc.mode=undefined;c.npc.punch=0;
+    c.p.th=faceTo(px,pz,dx,dz);c.npc.th=faceTo(dx,dz,px,pz);c.cam=[...cinePos(2.2,0),1.08]}},
   {d:2.9,who:'Le père',txt:'« T’as dix-neuf ans. Ici, c’est terminé. Dehors ! »',f(c,k){
     const sh=seg(k,.42,.7),w=1-Math.pow(1-sh,3);
     const [dx,dz]=cinePos(.7+1.2*seg(k,.3,.5),-.45),[px,pz]=cinePos(3+2.6*w,.5+.4*w);
-    c.dad.x=dx;c.dad.z=dz;c.dad.punch=k>.35&&k<.62?seg(k,.35,.62):0;c.dad.mode=undefined;
-    c.p.x=px;c.p.z=pz;c.p.mode=k>.68?'ko':undefined;c.p.sp=0;c.p.th=faceTo(px,pz,dx,dz);c.dad.th=faceTo(dx,dz,px,pz);
+    c.npc.x=dx;c.npc.z=dz;c.npc.punch=k>.35&&k<.62?seg(k,.35,.62):0;c.npc.mode=undefined;
+    c.p.x=px;c.p.z=pz;c.p.mode=k>.68?'ko':undefined;c.p.sp=0;c.p.th=faceTo(px,pz,dx,dz);c.npc.th=faceTo(dx,dz,px,pz);
     if(k>.45&&!c.shoved){c.shoved=1;CAM.shake=5;Sfx.crash(.4)}
     c.cam=[...cinePos(3.2,.3),1]}},
   {d:2.4,who:'Le père',txt:'« Et prends tes affaires ! »',f(c,k){
     const t=seg(k,.2,.62),[ax,az]=cinePos(1.3,-.4),[bx,bz]=cinePos(5.8,2.6);
     c.bag.show=k>.18?1:0;c.bag.x=ax+(bx-ax)*t;c.bag.z=az+(bz-az)*t;c.bag.h=Math.sin(t*Math.PI)*2.2;c.bag.r=t*7;
-    c.dad.punch=k>.1&&k<.4?seg(k,.1,.4):0;c.p.mode='ko';
+    c.npc.punch=k>.1&&k<.4?seg(k,.1,.4):0;c.p.mode='ko';
     if(t>=1&&!c.landed){c.landed=1;Sfx.crash(.15)}}},
   {d:1.8,nar:'La porte claque.',f(c,k){
-    c.dad.show=k<.15?1:0;c.door=k<.2?1:0;c.p.mode='ko';
+    c.npc.show=k<.15?1:0;c.door=k<.2?1:0;c.p.mode='ko';
     if(k>.2&&!c.slam){c.slam=1;CAM.shake=4;Sfx.crash(.6)}}},
   {d:3.2,who:'Toi',txt:'« … 150 € en poche. Plus de toit. »',f(c,k){
-    c.door=0;c.dad.show=0;c.p.mode=k<.3?'ko':undefined;c.p.sp=0;
+    c.door=0;c.npc.show=0;c.p.mode=k<.3?'ko':undefined;c.p.sp=0;
     const [px,pz]=cinePos(5.4,.9);c.p.x=px;c.p.z=pz;const [fx,fz]=cinePos(0,0);c.p.th=faceTo(px,pz,fx,fz);c.cam=[...cinePos(4.4,.8),1.1]}},
   {d:3.4,who:'Toi',txt:'« El Refe. Lui, il saura quoi faire. »',f(c,k){
-    const w=eio(seg(k,0,.35)),[ax,az]=cinePos(5.4,.9),[bx,bz]=cinePos(5.8,2.3);
+    const w=eio(seg(k,0,.35)),[ax,az]=cinePos(5.4,.9),[bx,bz]=cinePos(5.8,2.3),r=npcById('refe');
     c.p.x=ax+(bx-ax)*w;c.p.z=az+(bz-az)*w;c.p.sp=k<.35?2:0;c.p.mode=undefined;c.bag.show=k<.33?1:0;
-    const th=faceTo(c.p.x,c.p.z,RF.x,RF.z);c.p.th=k<.35?faceTo(ax,az,bx,bz):th;
+    c.p.th=k<.35?faceTo(ax,az,bx,bz):faceTo(c.p.x,c.p.z,r.x,r.z);
     c.cam=[c.p.x,c.p.z,1.1-.45*eio(seg(k,.3,1))]}},
-  {d:2.8,title:1,f(c,k){c.cam=[c.p.x,c.p.z,.6]}},
+  {d:2.8,title:1,ttl:['Chapitre 1','À la rue'],f(c,k){c.cam=[c.p.x,c.p.z,.6]}},
 ];
 function startIntro(){
   if(!SPOT)return;
-  const c={i:0,t:0,door:0,dad:{show:0,x:0,z:0,th:0,ph:0,sp:0},p:{show:0,x:0,z:0,th:0,sp:0},bag:{show:0,x:0,z:0,h:0,r:0},cam:null};
-  CINE=c;setVehicle('foot');HIDE=null;closeMenu();
-  for(const k in keys)keys[k]=0;
-  $('hud').hidden=true;$('cine').hidden=false;cineBeat();
-  CBEATS[0].f(c,0);applyCineCam(1);
+  setVehicle('foot');HIDE=null;closeMenu();
+  startCine(CBEATS,{space:'world',kind:'intro',actors:{npc:{look:LOOKS.dad}},onEnd:()=>{
+    const [x,z]=cinePos(5.8,2.3),r=npcById('refe');P.x=x;P.z=z;P.th=faceTo(x,z,r.x,r.z);P.vx=P.vz=P.v=0;CAM.x=x;CAM.z=z;
+    const s=STO();if(s.q==='intro'){s.q='refe';questStart('refe')}
+    save();renderQuest(true);setTimeout(()=>toast('Suis la flèche jaune jusqu’à El Refe.'),500)}});
 }
-function cineZoom(){return clamp(Math.min(VW,VH)/19,15,46)}
-function applyCineCam(snap){const c=CINE;if(!c||!c.cam)return;const z=cineZoom()*c.cam[2],k=snap?1:.12,tz=c.cam[1]+70/z;CAM.x+=(c.cam[0]-CAM.x)*k;CAM.z+=(tz-CAM.z)*k;CAM.zoom+=(z-CAM.zoom)*k}
-function cineBeat(){
-  const c=CINE,b=CBEATS[c.i];if(!b)return;
-  const sub=$('cineSub');
-  vis($('cineTitle'),!!b.title);vis(sub,!b.title);
-  $('cineWho').textContent=b.who||'';vis($('cineWho'),!!b.who);
-  $('cineTxt').textContent=b.txt||b.nar||'';$('cineTxt').classList.toggle('nar',!!b.nar);
-  sub.classList.remove('in');void sub.offsetWidth;sub.classList.add('in');
-}
-function cineNext(){const c=CINE;if(!c)return;CBEATS[c.i].f(c,1);c.i++;c.t=0;if(c.i>=CBEATS.length){endIntro();return}cineBeat()}
-function updCine(real){
-  const c=CINE;if(!c)return;
-  const dt=Math.min(.05,real);c.t+=dt;const b=CBEATS[c.i];
-  b.f(c,Math.min(1,c.t/b.d));
-  c.p.ph=(c.p.ph||0)+c.p.sp*dt*1.6;c.dad.ph=(c.dad.ph||0)+c.dad.sp*dt*1.6;
-  if(c.t>=b.d)cineNext();
-  if(CINE){applyCineCam(false);CAM.shake=Math.max(0,CAM.shake-dt*14)}
-  updTraffic(dt,CAM.x,CAM.z,traffic);updPeds(dt,CAM.x,CAM.z);
-}
-function endIntro(){
-  const c=CINE;if(!c)return;
-  c.shoved=c.landed=c.slam=1;
-  for(let i=c.i;i<CBEATS.length;i++)CBEATS[i].f(c,1);
-  CINE=null;$('cine').hidden=true;$('hud').hidden=false;
-  const [x,z]=cinePos(5.8,2.3);P.x=x;P.z=z;P.th=faceTo(x,z,RF.x,RF.z);P.vx=P.vz=P.v=0;
-  const s=STO();if(s.q==='intro'){s.q='refe';questStart('refe')}
-  save();renderQuest(true);
-  setTimeout(()=>toast('Suis la flèche jaune jusqu’à El Refe.'),500);
-}
-$('cineSkip').onclick=e=>{e.stopPropagation();endIntro()};
+$('cineSkip').onclick=e=>{e.stopPropagation();endCine()};
 $('cine').addEventListener('click',e=>{if(e.target.closest('#cineSkip'))return;cineNext()});
-addEventListener('keydown',e=>{if(!CINE)return;if(e.key==='Escape'){endIntro();e.preventDefault()}else if(e.key===' '||e.key==='Enter'){cineNext();e.preventDefault()}},true);
+addEventListener('keydown',e=>{if(!CINE)return;if(e.key==='Escape'){endCine();e.preventDefault()}else if(e.key===' '||e.key==='Enter'){cineNext();e.preventDefault()}},true);
 
-/* ---------- dessin : la porte de la maison, le sac, le père, El Refe et son acolyte ---------- */
+/* ---------- dessin ---------- */
 function drawDoor(open){
   const s=SPOT.home,[ax,az]=spotAt(s,0,-1.4),[bx,bz]=spotAt(s,0,1.4);
-  if(open){
-    const [i1x,i1z]=spotAt(s,-.45,-1.4),[i2x,i2z]=spotAt(s,-.45,1.4);
-    ctx.fillStyle='#ffd08a';poly(ax,az,bx,bz,i2x,i2z,i1x,i1z);
-    const [hx,hz]=spotAt(s,0,1.4),[ex,ez]=spotAt(s,-.2,1.25);ctx.strokeStyle='#5a3a22';ctx.lineWidth=.32;ctx.beginPath();ctx.moveTo(hx,hz);ctx.lineTo(ex+(-s.nx)*2.4,ez+(-s.nz)*2.4);ctx.stroke();
-  }else{ctx.strokeStyle='#5a3a22';ctx.lineWidth=.42;ctx.beginPath();ctx.moveTo(ax,az);ctx.lineTo(bx,bz);ctx.stroke()}
+  if(open){const [i1x,i1z]=spotAt(s,-.45,-1.4),[i2x,i2z]=spotAt(s,-.45,1.4);ctx.fillStyle='#ffd08a';poly(ax,az,bx,bz,i2x,i2z,i1x,i1z);
+    const [hx,hz]=spotAt(s,0,1.4),[ex,ez]=spotAt(s,-.2,1.25);ctx.strokeStyle='#5a3a22';ctx.lineWidth=.32;ctx.beginPath();ctx.moveTo(hx,hz);ctx.lineTo(ex-s.nx*2.4,ez-s.nz*2.4);ctx.stroke()}
+  else{ctx.strokeStyle='#5a3a22';ctx.lineWidth=.42;ctx.beginPath();ctx.moveTo(ax,az);ctx.lineTo(bx,bz);ctx.stroke()}
   ctx.strokeStyle='#2a201a';ctx.lineWidth=.22;const [c1x,c1z]=spotAt(s,.05,-1.6),[c2x,c2z]=spotAt(s,.05,1.6);ctx.beginPath();ctx.moveTo(c1x,c1z);ctx.lineTo(c2x,c2z);ctx.stroke();
 }
 function drawLightSpill(){
@@ -3756,131 +4622,137 @@ function drawLightSpill(){
   const [a1x,a1z]=spotAt(s,0,-1.4),[a2x,a2z]=spotAt(s,0,1.4),[b1x,b1z]=spotAt(s,7,-4.2),[b2x,b2z]=spotAt(s,7,4.2);
   ctx.fillStyle=g;poly(a1x,a1z,a2x,a2z,b2x,b2z,b1x,b1z);
 }
+function nameTag(x,z,txt,col){ctx.font='700 1.2px "Work Sans",sans-serif';ctx.textAlign='center';ctx.lineWidth=.35;ctx.strokeStyle='rgba(15,10,8,.85)';ctx.fillStyle=col;ctx.strokeText(txt,x,z);ctx.fillText(txt,x,z)}
 function drawStory(now){
   if(!SPOT)return;
-  const c=CINE;
-  if(c){
+  const c=CINE,t=now/1000;
+  drawBizFronts(now);
+  if(c&&c.space==='world'&&c.kind==='intro'){
     if(c.door)drawLightSpill();
     if(c.bag.show){const b=c.bag;ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(b.x,b.z,.7,.45,0,0,6.3);ctx.fill();
       ctx.save();ctx.translate(b.x,b.z-b.h);ctx.rotate(b.r);ctx.fillStyle='#3c4a2c';rr(ctx,-.6,-.45,1.2,.9,.22);ctx.fill();ctx.fillStyle='#2c3820';ctx.fillRect(-.6,-.08,1.2,.16);ctx.restore()}
-    if(c.dad.show)drawHuman(c.dad.x,c.dad.z,c.dad.th,DAD_LOOK,c.dad.ph||0,c.dad.sp,HS,c.dad.mode,c.dad.punch||0);
-    if(c.p.show)drawHuman(c.p.x,c.p.z,c.p.th,PLAYER_LOOK,c.p.ph||0,c.p.sp,HS,c.p.mode,0);
+    drawCineActors(HS);
   }
-  if(RF&&!RF.gone&&inView(RF.x,RF.z,8)){
-    const r=SPOT.refe;
-    if(!STO().dead){const [cx,cz]=spotAt(r,1.8,2.6);
-      ctx.fillStyle='#d9d4c8';rr(ctx,cx-.55,cz-.55,1.1,1.1,.2);ctx.fill();
-      drawHuman(cx,cz,Math.atan2(r.nx,r.nz),SIDE_LOOK,0,0,HS,'sit')}
-    if(!c&&refeHere()&&!RF.ko&&qIdx(STO().q)>=qIdx('refe')&&(STO().q==='refe'||STO().q==='tuer'))drawBeacon(RF.x,RF.z,5,'#ffd24a',now/1000);
-    drawHuman(RF.x,RF.z,RF.th,REFE_LOOK,RF.ph,RF.sp,HS,RF.ko?'ko':RF.fight||RF.talkT>0||RF.sp>0?undefined:'chat',RF.punch>0?1-RF.punch:0);
-    if(!RF.ko){ctx.font='700 1.25px "Work Sans",sans-serif';ctx.textAlign='center';ctx.lineWidth=.35;ctx.strokeStyle='rgba(15,10,8,.85)';ctx.fillStyle='#ffd24a';
-      ctx.strokeText('El Refe',RF.x,RF.z-2.7);ctx.fillText('El Refe',RF.x,RF.z-2.7);
-      if(RF.fight){const w=3;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(RF.x-w/2,RF.z-2.4,w,.32);ctx.fillStyle='#e0503a';ctx.fillRect(RF.x-w/2,RF.z-2.4,w*clamp(RF.hp/100,0,1),.32)}}
+  // zones : contrôle de police, zone de recherche
+  if(ZONE&&inView(ZONE.x,ZONE.z,ZONE.r+10)){ctx.strokeStyle='rgba(224,80,58,.55)';ctx.lineWidth=1.2;ctx.setLineDash([4,3]);ctx.beginPath();ctx.arc(ZONE.x,ZONE.z,ZONE.r,0,6.3);ctx.stroke();ctx.setLineDash([])}
+  // personnages de l'histoire
+  for(const n of SNPC){if(!n.show()||!inView(n.x,n.z,8))continue;
+    if(n.chair){ctx.fillStyle='#d9d4c8';rr(ctx,n.x-.55,n.z-.55,1.1,1.1,.2);ctx.fill()}
+    if(n.id==='blanch'){const tb=SPOT.blanch.table;if(tb){el(ctx,tb.x+.2,tb.z-.1,.32,.25,'#f1e8d6')}}
+    const q=STO().q,hl=(n.id==='refe'&&(q==='refe'||q==='refe2'||q==='refe3'))||(n.id==='vega'&&['vega','guerre'].includes(q))||(n.id==='blanch'&&q==='blanch2')||(n.id==='taupe'&&['taupe_pay','taupe2'].includes(q));
+    if(hl&&!c)drawBeacon(n.x,n.z,5,n.col||'#ffd24a',t);
+    drawHuman(n.x,n.z,n.th,n.look,n.ph,n.sp,HS,n.talkT>0?'chat':n.mode,n.punch>0?1-n.punch:0);
+    n.talkT=Math.max(0,n.talkT-.016);
+    if(n.name){const known=!n.known||n.known(),d=Math.hypot(P.x-n.x,P.z-n.z);
+      if(known||d<7)nameTag(n.x,n.z-2.7,known?n.name:'?',n.col||'#ffd24a')}
   }
+  for(const f of FIGHTERS){if(!inView(f.x,f.z,8))continue;
+    drawHuman(f.x,f.z,f.th,f.look,f.ph,f.sp,HS,f.ko?'ko':undefined,f.punch>0?1-f.punch:0);
+    if(!f.ko){nameTag(f.x,f.z-2.7,f.name,f.col||'#ff9a7a');if(f.fight||f.hp<f.max){const w=3;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(f.x-w/2,f.z-2.4,w,.32);ctx.fillStyle='#e0503a';ctx.fillRect(f.x-w/2,f.z-2.4,w*clamp(f.hp/f.max,0,1),.32)}}}
+  for(const fc of FCOPS){if(inView(fc.x,fc.z,5))drawHuman(fc.x,fc.z,fc.th,COP_LOOK,fc.ph,fc.v||1.5,HS,undefined,0)}
 }
-function drawStoryTop(){if(SPOT&&inView(SPOT.home.fx,SPOT.home.fz,12))drawDoor(!!(CINE&&CINE.door))}
-
-/* ---------- téléphone : les gérants envoient un message au lieu de venir ---------- */
-const PHONE=[];
-function phoneBtn(){const b=$('bPhone');if(!b)return;vis(b,inv('telephone')>0);$('phN').textContent=PHONE.length||'';b.classList.toggle('ring',PHONE.length>0)}
-function readPhone(){
-  if(!PHONE.length){openDialog('📱 Téléphone','#7fd1ff',{text:'Aucun nouveau message.',choices:[{label:'Fermer',close:1}]},()=>{});return}
-  const m=PHONE.shift(),b=BOSSES[m.id];phoneBtn();
-  if(G.retired[m.id]){readPhone();return}
-  openDialog('📱 '+b.name,b.col,pickScenario(m.id),null);curTalk.boss=1;
-}
-$('bPhone').onclick=()=>{if(started&&!ended&&!paused())readPhone()};
-{const _sm=startMeeting;startMeeting=function(){
-  if(!storyAt('choix')){meetT=60;return}
-  if(inv('telephone')>0){
-    const cand=BIDS.filter(id=>!G.retired[id]);if(!cand.length){meetT=9999;return}
-    const id=pick(cand);if(PHONE.length<3&&!PHONE.some(m=>m.id===id))PHONE.push({id});
-    toast(`📱 Nouveau message de ${BOSSES[id].name}. Touche le téléphone pour lire.`);Sfx.alert();phoneBtn();meetT=R(100,170);return}
-  _sm();
+function drawStoryTop(){if(SPOT&&inView(SPOT.home.fx,SPOT.home.fz,12))drawDoor(!!(CINE&&CINE.kind==='intro'&&CINE.door))}
+/* minicarte : zones, personnages connus, cachettes */
+{const _dm=drawMini;drawMini=function(){
+  _dm();if(!started||!SPOT)return;
+  const S=mm.width,f=S/300,k=S/1250,X=v=>(v+625)*k,s=STO();
+  if(ZONE){mx.fillStyle='rgba(224,80,58,.28)';mx.strokeStyle='#e0503a';mx.lineWidth=1.5*f;mx.beginPath();mx.arc(X(ZONE.x),X(ZONE.z),ZONE.r*k,0,7);mx.fill();mx.stroke()}
+  const q=Q[s.q];
+  if(q&&q.clue&&(s.clue[q.clue]||0)>=3){const tgt=q.clue==='blanch'?SPOT.blanch:SPOT.taupe,ox=((hash2(tgt.x,tgt.z)%60)-30),oz=((hash2(tgt.z,tgt.x)%60)-30);
+    mx.strokeStyle='#ffd24a';mx.lineWidth=2*f;mx.setLineDash([5*f,4*f]);mx.beginPath();mx.arc(X(tgt.x+ox),X(tgt.z+oz),70*k,0,7);mx.stroke();mx.setLineDash([]);mx.lineWidth=1}
+  for(const n of SNPC){if(!n.show()||!n.name||(n.known&&!n.known()))continue;mx.fillStyle=n.col||'#ffd24a';mx.strokeStyle='#120e0d';mx.lineWidth=f;mx.beginPath();mx.arc(X(n.x),X(n.z),4*f,0,7);mx.fill();mx.stroke()}
+  for(const ft of FIGHTERS){if(ft.ko||ft.name==='Garde'||ft.name==='Garde du corps')continue;mx.fillStyle='#ff5a40';mx.beginPath();mx.arc(X(ft.x),X(ft.z),3.5*f,0,7);mx.fill()}
+  for(const b of BIZS){if(!G.biz[b.id])continue;mx.fillStyle=BIZT[b.type].col;mx.fillRect(X(b.x)-3*f,X(b.z)-3*f,6*f,6*f)}
 }}
-
-/* ---------- la police : des patrouilles en permanence, qui te prennent en chasse si tu chauffes ---------- */
-updCops=function(dt){
-  const carrying=bagTot()>0||M,night=TOD.n;
-  const patrol=Math.max(1,Math.round((MOBILE?3:4)*(1-.35*night)))+(G.heat>=40?1:0);
-  const chase=HIDE?0:(carrying||G.heat>=60)?Math.min(6,Math.floor(G.heat/18*(1.15-.5*night))):0;
-  const want=patrol+chase;
-  spawnT-=dt;
-  if(cops.length<want&&spawnT<=0){const near=cops.filter(c=>!c.calm).length<chase,p=randRoadPoint(P.x,P.z,near?170:90,near?280:240),a=mkAI({k:'sedan',c:0xf2f2f4,cop:1},p.x,p.z,R(0,6.28),2.3);a.catch=0;a.calm=true;a.path=[];cops.push(a);spawnT=chase>cops.filter(c=>!c.calm).length?2.5:3.5}
-  const ord=cops.slice().sort((a,b)=>Math.hypot(a.x-P.x,a.z-P.z)-Math.hypot(b.x-P.x,b.z-P.z));
-  ord.forEach((c,i)=>{const w=i<chase;if(c.calm&&w){c.path=[];c.t=0}c.calm=!w});
-  for(const c of cops.slice()){
-    const d=Math.hypot(P.x-c.x,P.z-c.z);
-    if((cops.length>want&&d>160)||d>520){cops=cops.filter(q=>q!==c);continue}
-    if(c.calm||HIDE){
-      c.catch=0;
-      if(!c.path.length){const p=randRoadPoint(P.x,P.z,30,200);c.path=lanePath([c.x,c.z],pathTo(c.x,c.z,p.x,p.z))}
-      followPath(c,dt,HIDE?26:19);continue}
-    c.t-=dt;if(c.t<=0){c.t=.8;c.path=pathTo(c.x,c.z,P.x,P.z)}
-    const vt=Math.min(54+G.heat*.22,78)+(M?8:0);
-    if(d<45)aiMove(c,P.x,P.z,dt,vt);else followPath(c,dt,vt);
-    if(d<6.5&&!inLab())c.catch+=dt*(P.v<8?2:1);else c.catch=Math.max(0,c.catch-dt*2);
-    if(c.catch>1.6){arrest();return}
-  }
-};
-let copSeenT=0;
-const copNear=r=>cops.some(c=>c.calm&&Math.hypot(c.x-P.x,c.z-P.z)<r);
-
-/* ---------- raccords : ventes (30 % pour El Refe), labo, combat ---------- */
-function refeTake(before,where){
-  const s=STO(),gain=G.cash-before;
-  if(!s.cut||s.dead||gain<=0)return;
-  const c=Math.round(gain*REFE_CUT);G.cash-=c;G.earned-=c;s.paid=(s.paid||0)+c;
-  if(where)floater(where.x,where.z-4,'-'+fmt(c)+' El Refe','#ff9a7a',false);
-}
-{const _sale=sale;sale=function(o,cut,who){
-  const b=G.cash,ok=_sale(o,cut,who);
-  if(ok){refeTake(b,o);if(who==='toi'){STO().f.sale1=1;
-    if(storyAt('choix')&&copNear(45)&&copSeenT<=0){copSeenT=20;G.heat=Math.max(G.heat,60);toast('Une patrouille t’a vu vendre ! Elle te prend en chasse.','bad')}}}
-  return ok}}
-{const _eco=economy;economy=function(dt){const b=G.cash;_eco(dt);refeTake(b,null);copSeenT-=dt}}
-{const _um=updMission;updMission=function(dt){const b=G.cash,had=!!M;_um(dt);if(had&&!M&&G.cash>b){STO().f.gofast=1;refeTake(b,P)}}}
-{const _w=lWater;lWater=function(it){const c=G.can;_w(it);if(G.can<c)STO().f.water=1}}
-{const _h=lHarvest;lHarvest=function(it,q){const r=_h(it,q);if(r)STO().f.harvest=1;return r}}
-{const _l=lLoad;lLoad=function(it,q){const r=_l(it,q);if(r)STO().f.dry=1;return r}}
-{const _t=bagTake;bagTake=function(){const b=bagTot();_t();if(bagTot()>b)STO().f.take=1}}
-{const _c=updCombat;updCombat=function(dt){
-  const was=punchHit,on=punchT>0;_c(dt);
-  if(on&&!was&&punchHit&&RF&&refeHere()&&!RF.ko){const fx=Math.sin(P.th),fz=Math.cos(P.th),dx=RF.x-P.x,dz=RF.z-P.z,d=Math.hypot(dx,dz);
-    if(d<3.6&&(dx*fx+dz*fz)/(d||1)>.3)refePunched()}}}
-{const _f=findTarget;findTarget=function(){
-  _f();
-  if(!started||ended||paused()||P.def.kind!=='foot'||inLab())return;
-  if(tgt&&tgt.k==='enterlab'&&!labOpen())tgt={k:'info',label:STO().f.deal?'Fermé à clé : vends d’abord à ton client':'Fermé à clé. Va d’abord voir El Refe.'};
-  if(RF&&refeHere()&&!RF.ko&&!RF.fight){const d=Math.hypot(P.x-RF.x,P.z-RF.z);if(d<4.2&&(!tgt||tgt.k==='ped'||tgt.k==='info'))tgt={k:'refe',label:'Parler à El Refe'}}
-}}
-{const _a=act;act=function(){findTarget();if(tgt&&tgt.k==='refe'){talkRefe();Sfx.click();return}_a()};$('bAct').onclick=act}
 
 /* ---------- démarrage et boucle ---------- */
 function storyBegin(){
-  STO();PHONE.length=0;
-  if(STO().q==='intro'){setTimeout(startIntro,60);return}
-  if(!labOpen()&&SPOT){const [x,z]=cinePos(5.8,2.3);P.x=x;P.z=z;CAM.x=x;CAM.z=z;P.th=faceTo(x,z,RF.x,RF.z)}
+  STO();PHONE.length=0;FIGHTERS=[];ATK=null;ZONE=null;RAID=null;FCOPS=[];
+  const s=STO();
+  if(s.q==='lieut')spawnLieutenants();
+  if(s.q==='cache'||s.q==='refe_final')spawnHideout();
+  if(s.f.taupePaid)TIPT=90;
+  if(war())startWar();
+  if(s.q==='vega_liv')spawnVegaOrders();
+  if(s.q==='taupe_tip'&&!ZONE)setTimeout(()=>tipZone(true),15000);
+  if(s.q==='intro'){setTimeout(startIntro,60);return}
+  if(!labOpen()&&SPOT){const [x,z]=cinePos(5.8,2.3),r=npcById('refe');P.x=x;P.z=z;CAM.x=x;CAM.z=z;P.th=faceTo(x,z,r.x,r.z)}
   renderQuest(true);
-}
-function askChoice(){
-  const s=STO();if(s.q!=='choix'||paused())return;s.f.asked=1;
-  const c=(id,label,desc)=>({label,desc,fn:()=>{s.f.choice=id;return id==='labo'?'« Bon choix. Plus de place, plus de pots, plus de récolte. Va à l’ordinateur du labo. »':id==='dealer'?'« Un dealer, ça vend pendant que tu dors. Passe au bar, il y a du monde qui cherche du boulot. »':'« Avec des roues, tu feras trois fois plus de clients. File à la concession. »'}});
-  openDialog('El Refe','#e0b020',{text:'« Tu as fait tes premiers billets. Maintenant, tu choisis : tu investis dans quoi ? »',choices:[
-    c('labo','Agrandir le labo',`Plus de place pour les machines · ${fmt(upCost(UPS[0]))}`),
-    c('dealer','Recruter un dealer de rue',`Il vend ta réserve à ta place · ${fmt(tmCost(TEAM[2]))}`),
-    c('veh','Acheter un véhicule','Vélo dès 80 €, scooter 250 €, Clio 900 €')]},()=>{});
 }
 function updStory(dt){
   if(!started||ended)return;
   STO();
   if(!SPOT)storySetup();
-  updRefe(dt);
-  if(!CINE){questCheck(dt);if(STO().q==='choix'&&!STO().f.asked&&!paused())askChoice()}
+  launderTick(dt);
+  const pz=paused();
+  if(!pz&&!INT){updFighters(dt);updAttacks(dt);
+    if(STO().q==='cache'&&Math.hypot(P.x-SPOT.cache.x,P.z-SPOT.cache.z)<30)F().cacheFound=1}
+  for(const n of SNPC)n.ph+=n.sp*dt;
+  updTips(dt);
+  if(!CINE){questCheck(dt);if(STO().q==='choix'&&!F().asked&&!pz)askChoice()}
   qFlash=Math.max(0,qFlash-dt);const qe=$('quest');if(qe)qe.classList.toggle('flash',qFlash>0);
+  // bandeau : contrôle de police, descente annoncée, attaque
+  SBAN=null;
+  if(ZONE&&Math.hypot(P.x-ZONE.x,P.z-ZONE.z)<ZONE.r)SBAN={txt:`Zone de contrôle de police · ${Math.ceil(ZONE.t)} s${bagTot()?' · ton sac attire l’attention !':''}`,bg:'rgba(180,40,30,.92)'};
+  else if(RAID&&RAID.warned)SBAN={txt:`Descente annoncée sur ton labo dans ${Math.ceil(RAID.t)} s`,bg:'rgba(180,90,30,.92)'};
+  else if(ATK)SBAN={txt:`Attaque d’El Refe en cours · ${Math.ceil(ATK.t)} s`,bg:'rgba(150,110,20,.92)'};
   renderQuest(false);phoneBtn();
 }
 $('quest').onclick=questClick;
+
+/* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
+/* passages piétons : de part et d'autre de chaque carrefour */
+const CROSS=[];
+(function(){
+  const near=(r,x,z)=>CROSS.some(c=>Math.hypot(c.x-x,c.z-z)<(c.r===r?20:9));
+  for(const n of RN){
+    const R0=ROADS[n.r];if(!R0||R0.closed&&R0.pts.length>60)continue;
+    for(const mid of n.adj){const m=NODES[mid];if(!m||m.r===n.r)continue;
+      const wo=ROADS[m.r].w,s0=R0.cum[n.k];
+      for(const sg of [-1,1]){const s=s0+sg*(wo/2+3.2);if(!R0.closed&&(s<4||s>R0.len-4))continue;
+        const q=roadPos(n.r,s,0);if(maskAt(q[0],q[1])!==1||near(n.r,q[0],q[1]))continue;
+        // pas sur l'autre route ni dans le carrefour lui-même
+        if(Math.hypot(q[0]-m.x,q[1]-m.z)<wo/2+1.5)continue;
+        CROSS.push({r:n.r,x:q[0],z:q[1],a:Math.atan2(q[3],q[2]),w:R0.w})}}
+  }
+})();
+function drawCrosswalks(){
+  ctx.fillStyle='rgba(236,232,222,.78)';
+  for(const c of CROSS){if(!inView(c.x,c.z,c.w))continue;
+    ctx.save();ctx.translate(c.x,c.z);ctx.rotate(c.a);
+    for(let y=-c.w/2+1;y<c.w/2-.6;y+=1.25)ctx.fillRect(-1.5,y,3,.62);
+    ctx.restore()}
+}
+{const _dg=drawGround;drawGround=function(now){_dg(now);drawCrosswalks()}}
+/* chiens promenés par certains passants */
+const DOGC=['#c9a05a','#3a2a1c','#f1ece2','#8a6a48','#222222','#b5651d'];
+function drawDogs(t){
+  for(const p of peds){
+    if(p.dog===undefined){p.dog=Math.random()<.13;p.dogc=pick(DOGC);p.dsz=R(.75,1.15)}
+    if(!p.dog||p.ko>0||!inView(p.x,p.z,6))continue;
+    const fx=Math.sin(p.th),fz=Math.cos(p.th),moving=(p.hold>0?0:p.sp)>.3,wig=Math.sin((p.ph||0)*2.2+t*3)*(moving?.35:.15);
+    const dx=p.x+fx*1.9-fz*(.9+wig),dz=p.z+fz*1.9+fx*(.9+wig),sc=p.dsz;
+    // laisse
+    ctx.strokeStyle='rgba(30,25,20,.7)';ctx.lineWidth=.07;ctx.beginPath();ctx.moveTo(p.x+fz*.5,p.z-fx*.5);ctx.quadraticCurveTo((p.x+dx)/2,(p.z+dz)/2+.3,dx,dz);ctx.stroke();
+    ctx.save();ctx.translate(dx,dz);ctx.rotate(Math.PI/2-p.th);ctx.scale(sc,sc);
+    ctx.fillStyle=`rgba(0,0,0,${TOD.sa*.7})`;ctx.beginPath();ctx.ellipse(.15,.12,.62,.3,0,0,6.3);ctx.fill();
+    const lg=moving?Math.sin(t*12+(p.ph||0))*.12:0;
+    ctx.fillStyle=p.dogc;
+    for(const [lx,ly,ph] of [[.32,-.18,1],[.32,.18,-1],[-.32,-.18,-1],[-.32,.18,1]]){ctx.fillRect(lx+lg*ph-.05,ly-.05,.1,.1)}
+    el(ctx,0,0,.5,.24,p.dogc);el(ctx,.52,0,.2,.17,p.dogc);el(ctx,.62,-.12,.08,.05,shade(hexn(p.dogc),.6));el(ctx,.62,.12,.08,.05,shade(hexn(p.dogc),.6));
+    ctx.strokeStyle=p.dogc;ctx.lineWidth=.08;ctx.beginPath();ctx.moveTo(-.48,0);ctx.lineTo(-.72,Math.sin(t*9)*.15);ctx.stroke();
+    ctx.restore();
+  }
+}
+/* enseignes lumineuses devant chaque boutique (en néon la nuit) */
+{const _sf=drawShopFront;drawShopFront=function(s,now){
+  _sf(s,now);const T=SHOPTYPES[s.type],nx=s.ax==='x'?s.sg:0,nz=s.ax==='z'?s.sg:0,sx=s.x+nx*1.8,sz=s.z+nz*1.8,night=TOD.n>.35;
+  const txt=T.short.toUpperCase();ctx.font='700 1.15px "Bowlby One",Impact,sans-serif';ctx.textAlign='center';
+  const w=ctx.measureText(txt).width+.9;
+  ctx.fillStyle='rgba(18,14,12,.86)';rr(ctx,sx-w/2,sz-.95,w,1.45,.3);ctx.fill();
+  if(night){ctx.save();ctx.shadowColor=T.col;ctx.shadowBlur=16;ctx.fillStyle=T.col;ctx.fillText(txt,sx,sz+.2);ctx.restore()}
+  else{ctx.fillStyle=T.col;ctx.fillText(txt,sx,sz+.2)}
+}}
 
 
 /* ---------- boucle ---------- */
@@ -3888,7 +4760,8 @@ $('quest').onclick=questClick;
 function simStep(real,dt){
   economy(real);
   let near=9999;
-  if(!paused()){
+  if(INT){if(!paused())updInterior(dt)}
+  else if(!paused()){
     if(HIDE){HIDE.t+=dt;P.vx=P.vz=P.v=0}else if(P.def.kind==='foot')updFoot(dt);else updPlayer(dt);
     updCombat(dt);updPlace();
     updOrders(dt);updCops(dt);updGangs(dt);
@@ -3916,7 +4789,7 @@ function frame(now){
     orbit+=real*.05;CAM.x=Math.sin(orbit)*260;CAM.z=Math.cos(orbit*1.3)*260;CAM.zoom=Math.min(VW,VH)<600?2.6:3.6;
     updTraffic(dt,CAM.x,CAM.z,traffic);updPeds(dt,CAM.x,CAM.z);updFx(real);render(now);return}
   const near=simStep(real,dt);updStory(dt);
-  updFx(real);if(CINE)updCine(real);else updCamera(dt);hud(dt);render(now);
+  updFx(real);if(CINE)updCine(real);else if(INT)intCamera(dt);else updCamera(dt);hud(dt);render(now);
   Sfx.update({run:!menuOpen&&!ended&&!talking,foot:P.def.kind==='foot'||P.def.kind==='bike',sp:Math.hypot(P.vx,P.vz),vmax:P.def.vmax*(P.def.kind==='bike'?1:mot()),thr:!!keys.up,slip:P.slip,big:P.def.kind==='truck'||P.def.kind==='van',rain:WX.lvl,cop:cops.length?near:9999});
 }
 function honk(){if(HIDE||P.def.kind==='foot')return;Sfx.init();Sfx.horn();scarePeds(16);if(mpReady())MP.g.emit('horn',{}).catch(()=>{})}
@@ -3930,6 +4803,6 @@ if(DEBUG)window.__serre={get G(){return G},P,LAB:()=>LAB,act,actOpt,labDo,labTar
   lPlant,lHarvest,lLoad,lWater,openMenu,closeMenu,get CAR(){return CAR},enterCar,exitCar,J,keys,CAM,SHOPS,tot,rawTot,seedTot,orders:()=>orders,sale,genOrder,economy,labTick,inLab:()=>inLab(),labWorld,
   get tgt(){findTarget();return tgt},teleport:(x,z,th)=>{P.x=x;P.z=z;if(th!=null)P.th=th;P.vx=P.vz=0;CAM.x=x;CAM.z=z},MP,chooseVehicle,copsN:()=>cops.length,hide:()=>!!HIDE,mission:()=>M&&{units:M.units,value:M.value},
   step:sec=>{for(let t=0;t<sec;t+=.05){mpUpdate(.05);simStep(.05,.05);updStory(.05);updFx(.05);if(CINE)updCine(.05);else updCamera(.05)}hud(0)},
-  story:{get S(){return G.story},get RF(){return RF},get SPOT(){return SPOT},get CINE(){return CINE},endIntro,cineNext,talkRefe,refePunched,readPhone,PHONE,Q,get cops(){return cops},startMeeting,askChoice}};
+  story:{get S(){return G.story},get SPOT(){return SPOT},get CINE(){return CINE},get INT(){return INT},endCine,cineNext,talkRefe,readPhone,PHONE,Q,get cops(){return cops},startMeeting,askChoice,npc:npcById,get FIGHTERS(){return FIGHTERS},get FCOPS(){return FCOPS},talkPed,enterShop,exitShop,intAct,intTarget,get SNPC(){return SNPC},BIZS:()=>BIZS,bizAct,nextQuest,get ZONE(){return ZONE},CROSS}};
 if(G.began){beginGame(false)}else{$('start').hidden=false}
 requestAnimationFrame(frame);

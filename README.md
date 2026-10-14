@@ -70,15 +70,15 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 
 ## L'histoire
 
-Tu as dix-neuf ans et ton père vient de te mettre dehors (cinématique au début, « Passer » pour la sauter). Une carte « Objectif » en haut à gauche et une flèche jaune te guident :
+Tu as dix-neuf ans et ton père vient de te mettre dehors. La ville est coupée en deux par la rivière : le **Sud**, tenu par **El Refe**, et le **Nord**, tenu par **Madame Vega**. Une carte « Objectif » en haut à gauche et une flèche jaune te guident à travers cinq chapitres :
 
-1. Va voir **El Refe**. Il t'apprend à vendre et te confie un labo, mais il prend **30 % de tout ce que tu gagnes, à vie**.
-2. Vends à ton premier client, entre dans ton labo, plante, arrose, récolte, fais sécher, remplis ton sac, fais tes premiers bénéfices.
-3. Choisis par quoi commencer : agrandir le labo, recruter un dealer ou acheter un véhicule.
-4. Achète un **téléphone** (supérette) : les gérants t'envoient des messages au lieu de venir te chercher.
-5. Débarrasse-toi d'El Refe pour effacer ta dette (👊 ou F). Ensuite : nouvelles variétés, jardinier, go fast, deuxième secteur, 10 M€.
+1. **À la rue** : El Refe t'apprend à vendre et te confie un labo, contre 30 % de tes gains à vie.
+2. **Les bleus** : opération de police sur les Lilas (patrouilles, flics à pied, barrages). Téléphone, équipe, et premiers contacts avec Madame Vega.
+3. **L'argent sale** : trouve le Blanchisseur en interrogeant les passants (pas de flèche), ouvre des commerces (laverie, kebab…) pour blanchir. Les voitures se paient en argent propre.
+4. **La taupe** : trouve le flic infiltré, achète-le ; il te prévient des contrôles et des descentes jusqu'à la fin.
+5. **La trahison** : El Refe veut 50 %. Défends tes commerces, élimine ses lieutenants, puis lui. Sa mort est la fin de l'histoire ; l'épilogue continue jusqu'à 10 M€.
 
-La police patrouille en permanence (plus le jour que la nuit) et te prend en chasse si tu chauffes, ou si une patrouille te voit vendre ou frapper quelqu'un.
+Les magasins se visitent : on prend dans les rayons et on paie à la caisse. À la concession, le vendeur t'emmène dans son bureau pour négocier.
 
 ## Le labo
 

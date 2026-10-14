@@ -254,7 +254,8 @@ h2{font-size:18px}
   <div id="hud" hidden>
     <div class="stats">
       <div class="row">
-        <div class="chipbox money"><small>Cash · objectif 10 M€</small><b id="hCash">0 €</b><div class="hbar goal"><i id="hGoalBar"></i></div></div>
+        <div class="chipbox money" title="Argent sale : ce que rapportent les ventes"><small>Sale · objectif 10 M€</small><b id="hCash">0 €</b><div class="hbar goal"><i id="hGoalBar"></i></div></div>
+        <div class="chipbox money clean" title="Argent propre : blanchi par tes commerces"><small>Propre</small><b id="hClean">0 €</b></div>
         <div class="chipbox money" id="hBankBox" hidden><small>Banque</small><b id="hBank">0 €</b></div>
         <div class="chipbox stockbox"><small>Labo : graines · récolte · réserve</small><b><span id="hSeeds">0</span> · <span id="hRaw">0</span> · <span id="hStock">0/0</span></b></div>
         <div class="chipbox bagbox hit" id="hBagBox" role="button" tabindex="0" title="Ouvrir le sac (B)"><small>🎒 Sac</small><b id="hBag">0 u.</b></div>
@@ -263,7 +264,7 @@ h2{font-size:18px}
         <div class="chipbox" id="hCasierBox" hidden><small>Casier</small><b id="hCasier">0/3</b></div>
       </div>
       <div id="quest" class="hit" hidden role="button" tabindex="0" title="Objectif en cours : toucher pour voir le détail">
-        <small>Objectif</small><b id="qT"></b><span id="qP" hidden></span><span id="qD" hidden></span><em id="qS" hidden></em>
+        <small id="qC">Objectif</small><b id="qT"></b><span id="qP" hidden></span><span id="qD" hidden></span><em id="qS" hidden></em>
       </div>
     </div>
     <div id="mmBack" class="hit" hidden></div>
