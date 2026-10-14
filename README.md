@@ -79,11 +79,20 @@ Au départ, le labo a déjà un bureau avec l'ordinateur, un pot, un séchoir, u
    - **Graineterie** : graines, sur place, sans frais.
    - **Ordinateur du labo** : commande de tout, livrée par camionnette devant le labo en une minute environ (frais de livraison : 10 %, 10 € minimum).
    - **Concessionnaires** (Auto Lilas et Garage du Port) : véhicules.
-4. Agrandis le labo (Améliorations) et embauche un jardinier (Équipe) pour automatiser.
+4. **Tu places toi-même** chaque machine : approche-toi d'un endroit libre, « Poser une machine ici », puis avance ou tourne-toi jusqu'à ce que l'aperçu soit vert. « Options » sur une machine permet de la **déplacer** ou de la ranger.
+5. **Agrandis le labo** (Améliorations → Agrandir le labo, 4 niveaux payants) : la cloison du fond recule et libère de la place. Embauche un jardinier (Équipe) pour automatiser.
+
+## Le sac à dos
+
+Le produit séché arrive dans la **réserve** du labo (étagères à droite de l'entrée). Pour vendre, remplis ton **sac à dos** à la réserve : les clients se servent dans ton sac.
+- Une place = 10 unités d'une variété ou 5 objets identiques. Sac de départ : 6 places ; plus grands (10, 16, 24 places) dans les boutiques de vêtements.
+- Les objets achetés (tisane, lunettes, engrais…) vont dans le sac : touche **B** ou l'icône 🎒 pour les utiliser.
+- Si la police t'arrête ou qu'un gang te tombe dessus, c'est ton sac qu'ils vident. La réserve du labo reste.
 
 ## Commandes du jeu
 
 - **À pied** : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d'action à droite (ou E), Options (ou R).
 - **En voiture** : flèches à l'écran (ou ZQSD / flèches), DRIFT = frein à main (Espace), H : klaxon, G : go fast. Le bouton d'action devient « Descendre ».
-- **Partout** : glisse sur l'écran pour tourner la caméra · N : carte · T : chat.
+- **Frapper** : bouton 👊 (ou F), à pied. Un passant mis KO peut être **fouillé** (bouton d'action) : argent, parfois un objet ou du produit. Ça fait monter la chaleur.
+- **Partout** : glisse sur l'écran pour tourner la caméra · B : sac à dos · N : carte · T : chat.
 - On entre dans les boutiques et dans le labo à pied, par la porte. Poursuivi par la police ? Entre dans une boutique avant qu'ils soient trop près.

@@ -150,7 +150,7 @@ h2{font-size:18px}
 #toasts{bottom:calc(168px + env(safe-area-inset-bottom))}
 #hud.car #toasts{bottom:calc(110px + env(safe-area-inset-bottom))}
 .speedo{bottom:calc(16px + env(safe-area-inset-bottom))}
-.slots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:5px}
 .slot{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 3px;font-size:11px;min-height:58px;display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;text-align:center;overflow:hidden}
 .slot b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .slot span{color:var(--muted);font-family:var(--mono);font-size:10px}
@@ -179,6 +179,34 @@ h2{font-size:18px}
   .speedo{bottom:calc(84px + env(safe-area-inset-bottom))}
   #toasts,#hud.car #toasts{top:150px;bottom:auto;max-width:calc(100% - 170px)}
 }
+/* frapper (à pied) : gros bouton rond sous le bouton d'action */
+#bPunch{position:absolute;right:max(16px,env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom));width:68px;height:68px;border-radius:50%;border:2px solid rgba(255,90,64,.7);background:rgba(60,22,18,.82);color:#ffd9cf;font-size:26px;line-height:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;pointer-events:auto;touch-action:none;box-shadow:0 4px 14px rgba(0,0,0,.4);-webkit-user-select:none;user-select:none}
+#bPunch small{font-size:10px;white-space:nowrap;letter-spacing:.04em;font-family:var(--mono)}
+#bPunch:active{transform:scale(.92);background:rgba(120,30,22,.9)}
+#hud:not(.car) #actBox{bottom:calc(104px + env(safe-area-inset-bottom))}
+/* sac à dos */
+#bag{position:absolute;inset:0;background:rgba(10,8,8,.88);display:flex;align-items:center;justify-content:center;padding:12px;z-index:5}
+#bagBody{padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.bagGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+.bagc{background:var(--bg);border:1px solid var(--line);border-radius:8px;min-height:74px;padding:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;font-size:11px;min-width:0}
+.bagc b{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bagc span{font-family:var(--mono);color:var(--muted)}
+.bagc.prod{border-color:#6a8a3a;background:#1c2414}
+.bagc.obj{border-color:#5a4a7a;background:#1e1a28}
+.bagc.empty{border-style:dashed;color:#5a4a42}
+.bagc .btn{padding:4px 8px;font-size:11px}
+.bagbox{cursor:pointer;pointer-events:auto}
+.bagbox.full b{color:var(--heat)}
+@media (max-width:520px){
+  #bPunch{width:62px;height:62px;font-size:23px}
+  #hud:not(.car) #actBox{bottom:calc(96px + env(safe-area-inset-bottom));max-width:calc(100vw - 160px)}
+}
+@media (max-width:520px){
+  .stats .row{gap:4px}
+  .chipbox small{font-size:8.5px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px}
+  .chipbox b{font-size:13px}
+  .chipbox.heat{min-width:84px}
+}
 </style>
 <script src="claude-shim.js"></script>
 </head>
@@ -193,7 +221,8 @@ h2{font-size:18px}
       <div class="row">
         <div class="chipbox money"><small>Cash · objectif 10 M€</small><b id="hCash">0 €</b><div class="hbar goal"><i id="hGoalBar"></i></div></div>
         <div class="chipbox money" id="hBankBox" hidden><small>Banque</small><b id="hBank">0 €</b></div>
-        <div class="chipbox stockbox"><small>Graines · Récolte · Produit</small><b><span id="hSeeds">0</span> · <span id="hRaw">0</span> · <span id="hStock">0/0</span></b></div>
+        <div class="chipbox stockbox"><small>Labo : graines · récolte · réserve</small><b><span id="hSeeds">0</span> · <span id="hRaw">0</span> · <span id="hStock">0/0</span></b></div>
+        <div class="chipbox bagbox hit" id="hBagBox" role="button" tabindex="0" title="Ouvrir le sac (B)"><small>🎒 Sac</small><b id="hBag">0 u.</b></div>
         <div class="chipbox heat" id="hHeatBox" hidden><small>Chaleur</small><b id="hHeat">0 %</b><div class="hbar"><i id="hHeatBar"></i></div></div>
         <div class="chipbox life" id="hLifeBox" hidden><small>Vie</small><b id="hLife">100</b><div class="hbar"><i id="hLifeBar"></i></div></div>
         <div class="chipbox" id="hCasierBox" hidden><small>Casier</small><b id="hCasier">0/3</b></div>
@@ -208,6 +237,7 @@ h2{font-size:18px}
       <span class="pill hit" id="hOnline" hidden style="cursor:pointer;color:#7fd1ff"></span>
       <div class="iconrow">
         <button class="icon hit" id="bChat" hidden aria-label="Chat">💬</button>
+        <button class="icon hit" id="bBag" aria-label="Sac à dos">🎒</button>
         <button class="icon hit" id="bSnd" aria-label="Couper le son">🔊</button>
       </div>
       <button class="btn ghost hit" id="bHorn" hidden>Klaxon · H</button>
@@ -231,6 +261,7 @@ h2{font-size:18px}
       <button class="btn ghost hit" id="bOpt" hidden aria-label="Plus d’options">Options · R</button>
       <button class="btn hit" id="bAct" hidden><span id="bActT"></span></button>
     </div>
+    <button class="hit" id="bPunch" hidden aria-label="Frapper (F)" title="Frapper (F)">👊<small>Frapper</small></button>
   </div>
 
   <div id="menu" hidden>
@@ -258,8 +289,8 @@ h2{font-size:18px}
       <div class="list" id="goals">
         <div class="item"><b>Gagner</b><span>Atteins 10 000 000 € de cash.</span></div>
         <div class="item"><b>Perdre : la prison</b><span>Trois arrestations. Le casier s’efface d’un cran toutes les 8 minutes sans arrestation.</span></div>
-        <div class="item"><b>Ton labo</b><span>Au départ : un bureau avec l’ordinateur, un pot, un séchoir, un robinet et 3 graines. Plante, arrose (l’arrosoir se remplit au robinet), taille, récolte, puis passe la récolte au séchoir : c’est ce produit que tu vends. Le reste s’achète à la jardinerie et à la graineterie, ou se commande à l’ordinateur, livré en camionnette.</span></div>
-        <div class="item"><b>Commandes</b><span>À pied : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d’action à droite (ou E). En voiture : flèches à l’écran (ou ZQSD / flèches), DRIFT = frein à main (Espace). Glisse sur l’écran pour tourner la caméra. N : carte. T : chat. H : klaxon. G : go fast.</span></div>
+        <div class="item"><b>Ton labo</b><span>Au départ : un bureau avec l’ordinateur, un pot, un séchoir, un robinet et 3 graines. Plante, arrose (l’arrosoir se remplit au robinet), taille, récolte, puis passe la récolte au séchoir : le produit séché va dans la réserve : remplis ton sac à dos aux étagères pour aller le vendre. C’est toi qui places les machines où tu veux, et tu peux payer pour agrandir le labo. Le reste s’achète à la jardinerie et à la graineterie, ou se commande à l’ordinateur, livré en camionnette.</span></div>
+        <div class="item"><b>Commandes</b><span>À pied : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d’action à droite (ou E). En voiture : flèches à l’écran (ou ZQSD / flèches), DRIFT = frein à main (Espace). 👊 (ou F) : frapper, puis fouiller un passant KO. 🎒 (ou B) : sac à dos. Glisse sur l’écran pour tourner la caméra. N : carte. T : chat. H : klaxon. G : go fast.</span></div>
         <div class="item"><b>Jour et nuit</b><span>La nuit, les clients paient jusqu’à 25 % de plus et il y a moins de patrouilles. Le jour, plus de flics.</span></div>
         <div class="item"><b>Multijoueur</b><span>Tous ceux qui ouvrent l’adresse du jeu se retrouvent dans la partie publique ; avec un code, partie privée. T : chat. Chacun garde son argent et son labo.</span></div>
         <div class="item"><b>Semer la police</b><span>Quand on te poursuit, entre dans une boutique avant que les flics ne soient trop près : ils perdent ta trace et la chaleur retombe vite.</span></div>
@@ -272,6 +303,13 @@ h2{font-size:18px}
       </div>
       <div><h2 style="margin:6px 0">Partie entre amis</h2><p class="note" style="margin-bottom:6px">Sans rien faire, tu es dans la partie publique avec tous ceux qui ont le jeu ouvert. Pour jouer seulement entre vous, crée une partie privée et donne le code.</p><div class="chips" style="align-items:center"><button class="btn ghost" id="partyNew">Créer une partie</button><input id="partyIn" placeholder="CODE" maxlength="5" aria-label="Code de partie" autocomplete="off" style="width:110px;letter-spacing:.18em"><button class="btn ghost" id="partyJoin">Rejoindre</button></div><p class="note" id="mpStartStatus" style="margin-top:6px">Multijoueur : connexion…</p><p class="note" id="partyMsg" role="status" style="margin-top:4px"></p></div>
       <div class="chips" style="align-items:center"><input id="startCode" placeholder="XXXX-XXXX" maxlength="9" aria-label="Code de sauvegarde" autocomplete="off"><button class="btn ghost" id="startLoad">Charger une partie</button><span class="note" id="startMsg"></span></div>
+    </div>
+  </div>
+
+  <div id="bag" hidden>
+    <div class="sheet">
+      <header><h2 id="bagTitle">Sac à dos</h2><button class="btn ghost" id="bagClose">Fermer</button></header>
+      <div id="bagBody"></div>
     </div>
   </div>
 
