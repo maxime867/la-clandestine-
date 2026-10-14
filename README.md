@@ -1,6 +1,6 @@
 # La Serre Clandestine
 
-Jeu 2D en vue de dessus dans le quartier des Lilas, avec multijoueur en ligne.
+Jeu en 2D vu de dessus, dans le quartier des Lilas, avec multijoueur en ligne. Il tourne bien sur téléphone.
 **Aucun compte n'est nécessaire** : il suffit d'ouvrir l'adresse du jeu.
 Le jeu et son serveur tiennent dans ce dossier, **sans dépendance à installer** : il faut seulement Node.js.
 
@@ -9,8 +9,9 @@ la-serre-clandestine/
 ├── server.js              ← le serveur (pages du jeu + multijoueur + sauvegardes)
 ├── package.json
 ├── public/
-│   ├── index.html         ← le jeu complet
-│   └── claude-shim.js     ← branche le multijoueur et les sauvegardes du jeu sur server.js
+│   ├── index.html         ← la page du jeu (affichage, menus)
+│   ├── game.js            ← tout le jeu
+│   ├── claude-shim.js     ← branche le multijoueur et les sauvegardes du jeu sur server.js
 ├── data/                  ← créé tout seul : les sauvegardes en ligne (saves.json)
 ├── CLAUDE.md              ← notes pour Claude Code
 └── README.md
@@ -58,7 +59,7 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 - **Sans rien faire**, tous ceux qui ouvrent l'adresse se retrouvent dans la **partie publique**.
 - **Partie privée** : Menu → Multijoueur → **Créer une partie**. Donne le code de 5 caractères à tes amis. Ils l'entrent dans le même onglet et cliquent sur **Rejoindre**.
 - **T** : chat. **H** : klaxon. L'étiquette en haut à droite indique la partie et le nombre de joueurs, ou « hors ligne » en rouge si le serveur ne répond pas.
-- Chacun garde son argent, sa serre, sa police et ses gangs. Ce qui est partagé : la ville, l'heure, la météo, les positions et le chat.
+- Chacun garde son argent, son labo, sa police et ses gangs. Ce qui est partagé : la ville, l'heure, la météo, les positions et le chat.
 
 ## Réglages (variables d'environnement)
 
@@ -67,7 +68,30 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 | `PORT`     | `3000`     | port du serveur (Render le fixe tout seul) |
 | `DATA_DIR` | `./data`   | dossier des sauvegardes en ligne |
 
+## Le labo
+
+Au départ, le labo a déjà un bureau avec l'ordinateur, un pot, un séchoir, un robinet et 3 graines.
+1. Approche-toi du pot pour **planter**, puis **arrose** : l'arrosoir (8 arrosages) se remplit au **robinet**, à droite de l'entrée.
+2. **Taille** à mi-pousse (+20 % de récolte), **récolte**, puis charge la récolte dans le **séchoir** : c'est le produit séché que tu vends aux clients.
+3. Pour t'agrandir :
+   - **Jardinerie** : machines (pots, bacs, tables hydroponiques, arroseurs, séchoirs, en 3 niveaux), sur place, sans frais.
+   - **Graineterie** : graines, sur place, sans frais.
+   - **Ordinateur du labo** : commande de tout, livrée par camionnette devant le labo en une minute environ (frais de livraison : 10 %, 10 € minimum).
+   - **Concessionnaires** (Auto Lilas et Garage du Port) : véhicules.
+4. **Tu places toi-même** chaque machine : approche-toi d'un endroit libre, « Poser une machine ici », puis avance ou tourne-toi jusqu'à ce que l'aperçu soit vert. « Options » sur une machine permet de la **déplacer** ou de la ranger.
+5. **Agrandis le labo** (Améliorations → Agrandir le labo, 4 niveaux payants) : la cloison du fond recule et libère de la place. Embauche un jardinier (Équipe) pour automatiser.
+
+## Le sac à dos
+
+Le produit séché arrive dans la **réserve** du labo (étagères à droite de l'entrée). Pour vendre, remplis ton **sac à dos** à la réserve : les clients se servent dans ton sac.
+- Une place = 10 unités d'une variété ou 5 objets identiques. Sac de départ : 6 places ; plus grands (10, 16, 24 places) dans les boutiques de vêtements.
+- Les objets achetés (tisane, lunettes, engrais…) vont dans le sac : touche **B** ou l'icône 🎒 pour les utiliser.
+- Si la police t'arrête ou qu'un gang te tombe dessus, c'est ton sac qu'ils vident. La réserve du labo reste.
+
 ## Commandes du jeu
 
-Flèches ou ZQSD : conduire · Espace : frein à main · E : entrer / parler / se cacher · H : klaxon · G : go fast · M : menu · N : carte · T : chat.
-Sur téléphone : les boutons à l'écran.
+- **À pied** : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d'action à droite (ou E), Options (ou R).
+- **En voiture** : flèches à l'écran (ou ZQSD / flèches), DRIFT = frein à main (Espace), H : klaxon, G : go fast. Le bouton d'action devient « Descendre ».
+- **Frapper** : bouton 👊 (ou F), à pied. Un passant mis KO peut être **fouillé** (bouton d'action) : argent, parfois un objet ou du produit. Ça fait monter la chaleur.
+- **Partout** : B : sac à dos · N : carte · T : chat.
+- On entre dans le labo à pied, par la porte (le toit s'efface et la vue zoome). Poursuivi par la police ? Descends et cache-toi dans une boutique avant qu'ils soient trop près.
