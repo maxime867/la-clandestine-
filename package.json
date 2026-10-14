@@ -1,0 +1,10 @@
+{
+  "name": "carte-projet-narcos",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Carte mentale du Projet Narcos, partagée en temps réel (Netlify + Netlify Blobs).",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.4"
+  }
+}
