@@ -180,8 +180,8 @@ const LAB_COLS=6,LAB_ROWS=4,LAB_MAX=LAB_COLS*LAB_ROWS;
 /* au départ, le labo a déjà un pot, un séchoir, un robinet (arrosoir plein) et quelques graines */
 const CAN_MAX=8;
 const newG=(home='cite')=>({v:5,home,inv:{},look:{},began:0,cash:150,bank:0,heat:0,hp:100,strikes:0,strikeT:0,t:0,sel:'jardin',
-  seeds:{jardin:3},raw:{},stock:{},lv:{},unlocked:{jardin:1,skunk:1},owned:{foot:1},veh:'foot',earned:0,can:CAN_MAX,deliv:[],
-  lab:{items:[{id:'pot',d:5.2,s:-1.5,pl:null},{id:'sechoir',d:6.4,s:6.8,pl:null}],store:{}},bag:{lv:0,p:{},it:{}},
+  seeds:{jardin:5},raw:{},stock:{},lv:{},unlocked:{jardin:1,skunk:1},owned:{foot:1},veh:'foot',earned:0,can:CAN_MAX,deliv:[],
+  lab:{items:[{id:'pot',d:5.2,s:-1.5,pl:null},{id:'pot',d:5.2,s:.5,pl:null},{id:'sechoir',d:4.2,s:4.4,pl:null}],store:{}},bag:{lv:0,p:{},it:{}},
   rel:{baron:0,momo:0,vega:0,tonton:0},ally:{},
   retired:Object.fromEntries(BIDS.filter(b=>BOSSES[b].sector===home).map(b=>[b,1])),
   own:Object.fromEntries(DKEYS.map(k=>[k,k===home?'you':BIDS.find(b=>BOSSES[b].sector===k)]))});
@@ -195,7 +195,7 @@ function migrate(g){
   const hb=BIDS.find(b=>BOSSES[b].sector===g.home);if(hb)g.retired[hb]=1;
   if(g.v===4){
     const old=Array.isArray(g.pots)?g.pots:[];
-    g.v=5;g.seeds={};g.raw={};g.lab={items:[],store:{sechoir:1}};
+    g.v=5;g.seeds={};g.raw={};g.lab={items:[],store:{}};
     g.lv.labo=Math.min(4,Math.floor((g.lv.pot||0)/5));delete g.lv.pot;
     const n=8+4*g.lv.labo;
     old.forEach((p,i)=>{
@@ -213,6 +213,12 @@ function migrate(g){
     if(typeof it.d!=='number'||typeof it.s!=='number'||!isFinite(it.d)||!isFinite(it.s))return false;
     if(it.pl&&!SM[it.pl.s])it.pl=null;if(it.b&&!SM[it.b.s])it.b=null;return true});
   g.bag=g.bag&&typeof g.bag==='object'?g.bag:{lv:0,p:{},it:{}};g.bag.lv=clamp(g.bag.lv|0,0,3);g.bag.p=g.bag.p||{};g.bag.it=g.bag.it||{};
+  // toujours au moins un séchoir posé dans le labo
+  if(!g.lab.items.some(it=>MM[it.id].cat==='transfo')){
+    const sid=['sechoir3','sechoir2','sechoir'].find(id=>(g.lab.store[id]||0)>0)||'sechoir';if(g.lab.store[sid])g.lab.store[sid]--;
+    const spots=[[4.2,4.4],[6.4,6.8],[4.2,9.5],[7.6,9.5],[8.5,4.4]];
+    const sp=spots.find(([d,s])=>!g.lab.items.some(it=>Math.abs(it.d-d)<1.8&&Math.abs(it.s-s)<1.8))||spots[0];
+    g.lab.items.push({id:sid,d:sp[0],s:sp[1],pl:null})}
   if(!SM[g.sel])g.sel='jardin';
   g.can=clamp(typeof g.can==='number'?g.can:CAN_MAX,0,CAN_MAX);
   g.deliv=(Array.isArray(g.deliv)?g.deliv:[]).filter(d=>d&&(d.k==='m'?MM[d.id]:SM[d.id])&&d.n>0);
@@ -360,6 +366,24 @@ function rasterPoly(P,fn){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of P){x0
   for(let j=mc(z0);j<=mc(z1);j++)for(let i=mc(x0);i<=mc(x1);i++){const x=-600+(i+.5)*MS,z=-600+(j+.5)*MS;if(inPoly(x,z,P))fn(j*MN+i)}}
 function rasterEll(cx,cz,rx,rz,fn){for(let j=mc(cz-rz);j<=mc(cz+rz);j++)for(let i=mc(cx-rx);i<=mc(cx+rx);i++){const x=-600+(i+.5)*MS,z=-600+(j+.5)*MS;if(((x-cx)/rx)**2+((z-cz)/rz)**2<=1)fn(j*MN+i)}}
 function rasterRect(x0,z0,x1,z1,fn){for(let j=mc(z0);j<=mc(z1);j++)for(let i=mc(x0);i<=mc(x1);i++)fn(j*MN+i)}
+function segRect(ax,az,bx,bz,x0,z0,x1,z1){
+  const inR=(x,z)=>x>=x0&&x<=x1&&z>=z0&&z<=z1;if(inR(ax,az)||inR(bx,bz))return 0;
+  const cr=(px,pz,qx,qz,rx,rz,sx,sz)=>{const d=(qx-px)*(sz-rz)-(qz-pz)*(sx-rx);if(!d)return false;const t=((rx-px)*(sz-rz)-(rz-pz)*(sx-rx))/d,u=((rx-px)*(qz-pz)-(rz-pz)*(qx-px))/d;return t>=0&&t<=1&&u>=0&&u<=1};
+  if(cr(ax,az,bx,bz,x0,z0,x1,z0)||cr(ax,az,bx,bz,x1,z0,x1,z1)||cr(ax,az,bx,bz,x1,z1,x0,z1)||cr(ax,az,bx,bz,x0,z1,x0,z0))return 0;
+  const pd=(x,z)=>Math.hypot(Math.max(x0-x,0,x-x1),Math.max(z0-z,0,z-z1));
+  return Math.min(pd(ax,az),pd(bx,bz),segDist(x0,z0,ax,az,bx,bz),segDist(x1,z0,ax,az,bx,bz),segDist(x0,z1,ax,az,bx,bz),segDist(x1,z1,ax,az,bx,bz));
+}
+/* marge entre un rectangle et le bord du trottoir le plus proche (négatif = empiète) */
+function roadClear(x0,z0,x1,z1){
+  let m=1e9;
+  for(const r of ROADS){
+    if(!r.bb0){let a=1e9,b=-1e9,c=1e9,d=-1e9;for(const p of r.pts){a=Math.min(a,p[0]);b=Math.max(b,p[0]);c=Math.min(c,p[1]);d=Math.max(d,p[1])}r.bb0=[a,c,b,d]}
+    const e=r.w/2+2.5,bb=r.bb0;if(bb[0]-e-20>x1||bb[2]+e+20<x0||bb[1]-e-20>z1||bb[3]+e+20<z0)continue;
+    const P=r.pts,n=P.length;
+    for(let i=0;i<n-(r.closed?0:1);i++){const a=P[i],b=P[(i+1)%n];const d=segRect(a[0],a[1],b[0],b[1],x0,z0,x1,z1)-e;if(d<m)m=d}
+  }
+  return m;
+}
 function rectFree(x0,z0,x1,z1,m){for(let j=mc(z0-m);j<=mc(z1+m);j++)for(let i=mc(x0-m);i<=mc(x1+m);i++)if(MASK[j*MN+i])return false;return x0-m>-598&&x1+m<598&&z0-m>-598&&z1+m<598}
 
 /* --- courbes --- */
@@ -434,7 +458,11 @@ function genWorld(){
   // collisions fixes : îlot du rond-point, fontaine, phare (l'île), bords de la mer gérés par l'eau
   addRectAll({x0:-13,x1:13,z0:-13,z1:13});addRectAll({x0:PLAZA.x-6,x1:PLAZA.x+6,z0:PLAZA.z-6,z1:PLAZA.z+6});
   // la Banque Centrale
-  {const b=BANK;mkBld(b.x,b.z,b.w,b.l,14,0xe9e2d0,{bank:1})}
+  {const b=BANK;let best=null;
+   for(let r=0;r<120&&!best;r+=4)for(let a=0;a<16&&!best;a++){const x=b.x+Math.cos(a/16*6.283)*r,z=b.z+Math.sin(a/16*6.283)*r;
+     if(rectFree(x-b.w/2,z-b.l/2,x+b.w/2,z+b.l/2,1)&&roadClear(x-b.w/2,z-b.l/2,x+b.w/2,z+b.l/2)>=1)best=[x,z]}
+   if(best){b.x=best[0];b.z=best[1]}
+   mkBld(b.x,b.z,b.w,b.l,14,0xe9e2d0,{bank:1})}
   // bâtiments par quartier
   const SPEC={tours:{st:36,w:[20,30],p:.92},port:{st:32,w:[16,28],p:.8},cite:{st:24,w:[9,15],p:.5},vieux:{st:22,w:[11,19],p:.85}};
   for(const k of DKEYS){
@@ -445,7 +473,10 @@ function genWorld(){
       const w=R(sp.w[0],sp.w[1]),l=R(sp.w[0],sp.w[1]),cx=x+sp.st/2+R(-3,3),cz=z+sp.st/2+R(-3,3);
       if(k==='port'&&Math.random()<.28){mkYard(cx,cz);continue}
       if(!rectFree(cx-w/2,cz-l/2,cx+w/2,cz+l/2,3))continue;
-      mkBld(cx,cz,w,l,R(h0,h1),pick(pal));
+      let W=Math.max(8,Math.round(w/2)*2),L=Math.max(8,Math.round(l/2)*2),ok=false;
+      for(let k=0;k<4&&W>=8&&L>=8;k++){if(roadClear(cx-W/2,cz-L/2,cx+W/2,cz+L/2)>=.5){ok=true;break}W-=2;L-=2}
+      const hh=R(h0,h1),col=pick(pal);
+      if(ok)mkBld(cx,cz,W,L,hh,col);
     }
   }
   // arbres : parc, jardins, avenues
@@ -487,7 +518,7 @@ function mkBld(x,z,w,l,h,hex,o){
   return b;
 }
 function mkYard(cx,cz){
-  if(!rectFree(cx-14,cz-12,cx+14,cz+12,2))return;
+  if(!rectFree(cx-14,cz-12,cx+14,cz+12,2)||roadClear(cx-14,cz-12,cx+14,cz+12)<.5)return;
   const B=binOf(cx,cz);
   for(let a=0;a<2;a++)for(let r=0;r<3;r++){if(Math.random()<.2)continue;const x=cx-7+a*14,z=cz-8+r*8,st=Math.random()<.4?2:1;
     B.cont.push({x0:x-6,x1:x+6,z0:z-2.5,z1:z+2.5,h:2.8*st,st:sty(pick([0xa8402a,0x2d5a8a,0x3f7a4a,0xc29a2a,0x8a8a8a]))});addRectAll({x0:x-6,x1:x+6,z0:z-2.5,z1:z+2.5})}
@@ -753,7 +784,7 @@ function drawHuman(x,z,th,L,ph,sp,sc,mode,punch){
 }
 
 /* ---------- immeubles : murs en perspective, fenêtres, toits ---------- */
-const KP=.0028,HC=70;
+const KP=.0019,HC=55;
 function poly(a,b,c,d,e,f,g,h){ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.lineTo(e,f);ctx.lineTo(g,h);ctx.closePath();ctx.fill()}
 function box(x0,z0,x1,z1,h0,h1,S,o){
   const cx=RC.x,cz=RC.z,f0=1+Math.min(h0,HC)*KP,f1=1+Math.min(h1,HC)*KP;
@@ -1846,7 +1877,7 @@ function updPlayer(dt){
 /* ---------- IA : chemins sur les routes ---------- */
 function pathTo(fx,fz,tx,tz){
   const sN=nearestNode(fx,fz),tN=nearestNode(tx,tz),nodes=astar(sN,tN),w=[];
-  for(let i=0;i<nodes.length;i++)if(i%2===0||i===nodes.length-1)w.push([nodes[i].x,nodes[i].z]);
+  for(let i=0;i<nodes.length;i++)w.push([nodes[i].x,nodes[i].z]);
   w.push([tx,tz]);
   return w.filter((p,i)=>!i||Math.hypot(p[0]-w[i-1][0],p[1]-w[i-1][1])>2);
 }
@@ -1865,12 +1896,31 @@ function aiMove(a,tx,tz,dt,vt){
   a.v+=(vt*slow-a.v)*Math.min(1,dt*1.8);
   a.x+=Math.sin(a.th)*a.v*dt;a.z+=Math.cos(a.th)*a.v*dt;
   if(collide(a,a.civ?1.9:2.4))a.v*=.85;
+  keepOnRoad(a,dt);
+}
+/* rappel vers la chaussée : une voiture qui mord sur le trottoir est ramenée sur la route (sauf flics et gangs en pleine poursuite) */
+function keepOnRoad(a,dt){
+  if(maskAt(a.x,a.z)===1&&maskAt(a.x+Math.sin(a.th)*2,a.z+Math.cos(a.th)*2)===1)return;
+  if(!a.civ&&!a.spr.courier&&Math.hypot(a.x-P.x,a.z-P.z)<30)return;
+  const n=nearestNode(a.x,a.z);if(!n)return;
+  const r=ROADS[n.r],P0=r.pts,k=n.k;let best=null,bd=1e9;
+  for(const j of [k-1,k]){const i0=r.closed?(j+P0.length)%P0.length:j;if(i0<0||i0>=P0.length-(r.closed?0:1))continue;const p=P0[i0],q=P0[(i0+1)%P0.length];
+    const dx=q[0]-p[0],dz=q[1]-p[1],l2=dx*dx+dz*dz||1;let t=((a.x-p[0])*dx+(a.z-p[1])*dz)/l2;t=Math.max(0,Math.min(1,t));
+    const x=p[0]+dx*t,z=p[1]+dz*t,d=Math.hypot(a.x-x,a.z-z);if(d<bd){bd=d;best={x,z,ux:dx/Math.sqrt(l2),uz:dz/Math.sqrt(l2)}}}
+  if(!best)return;
+  const lim=r.w/2-1.6;if(bd<=lim)return;
+  const ox=(a.x-best.x)/bd,oz=(a.z-best.z)/bd,tx=best.x+ox*lim,tz=best.z+oz*lim,k2=Math.min(1,dt*(bd-lim>4?10:5));
+  a.x+=(tx-a.x)*k2;a.z+=(tz-a.z)*k2;a.v*=Math.exp(-dt*1.5);
 }
 function followPath(a,dt,vt){
   if(!a.path||!a.path.length)return true;
   const w=a.path[0];
-  if(Math.hypot(w[0]-a.x,w[1]-a.z)<(a.path.length>1?14:6)){a.path.shift();if(!a.path.length)return true}
-  aiMove(a,a.path[0][0],a.path[0][1],dt,vt);return false;
+  if(Math.hypot(w[0]-a.x,w[1]-a.z)<(a.path.length>1?8:6)){a.path.shift();if(!a.path.length)return true}
+  const w0=a.path[0];
+  // ralentir avant un virage serré
+  if(a.path.length>1){const w1=a.path[1],dx0=w0[0]-a.x,dz0=w0[1]-a.z,dx1=w1[0]-w0[0],dz1=w1[1]-w0[1],l0=Math.hypot(dx0,dz0),l1=Math.hypot(dx1,dz1);
+    if(l0<26&&l1>.5){const c=(dx0*dx1+dz0*dz1)/(l0*l1||1);if(c<.85)vt=Math.min(vt,7+16*Math.max(0,c))}}
+  aiMove(a,w0[0],w0[1],dt,vt);return false;
 }
 const mkAI=(spr,x,z,th,turn)=>({spr,x,z,th:th||0,v:0,turn:turn||2.2,path:[],t:0,brk:false});
 
@@ -3186,7 +3236,7 @@ function beginGame(fresh){
   ended=false;HIDE=null;meetCar=null;meetT=110;setupGangs();syncCouriers();
   couriers.forEach(c=>{const p=randRoadPoint(homeSpawn().x,homeSpawn().z,10,60);c.x=p.x;c.z=p.z});
   orders.slice().forEach(removeOrder);
-  if(fresh){setTimeout(()=>toast('Ton labo a déjà un pot, un séchoir et 3 graines. Plante dans le pot, puis arrose : l’arrosoir se remplit au robinet, à droite de l’entrée. Ta voiture t’attend devant le labo.'),600);setTimeout(()=>toast('Le reste s’achète à la jardinerie (matériel) et à la graineterie (graines), ou se commande à l’ordinateur du labo, livré en camionnette.'),7000)}
+  if(fresh){setTimeout(()=>toast('Ton labo a déjà deux pots, un séchoir installé et 5 graines. Plante, puis arrose : l’arrosoir se remplit au robinet, à droite de l’entrée.'),600);setTimeout(()=>toast('Le reste s’achète à la jardinerie (matériel) et à la graineterie (graines), ou se commande à l’ordinateur du labo, livré en camionnette.'),7000)}
   else setTimeout(()=>toast('De retour au labo.'),400);
 }
 function resetGame(){

@@ -70,7 +70,7 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 
 ## Le labo
 
-Au départ, le labo a déjà un bureau avec l'ordinateur, un pot, un séchoir, un robinet et 3 graines.
+Au départ, le labo a déjà un bureau avec l'ordinateur, deux pots, un séchoir déjà installé, un robinet et 5 graines.
 1. Approche-toi du pot pour **planter**, puis **arrose** : l'arrosoir (8 arrosages) se remplit au **robinet**, à droite de l'entrée.
 2. **Taille** à mi-pousse (+20 % de récolte), **récolte**, puis charge la récolte dans le **séchoir** : c'est le produit séché que tu vends aux clients.
 3. Pour t'agrandir :
