@@ -250,22 +250,19 @@ const H=new Map();
 const boxH=id=>H.get(id)||(depthOf(id)===1?100:66);
 /* côté d'une grande branche : celui qu'elle a reçu à sa création, sinon une sur deux */
 const sideOf=(k,i)=>k.side===1||k.side===-1?k.side:(i%2?-1:1);
-/* Disposition stable : chaque idée garde sa place. Les sous-idées s'empilent vers le bas à partir de leur parent,
-   donc ajouter une idée ne décale que ce qui est en dessous d'elle, jamais le reste de la carte. */
+/* Disposition stable : les grandes branches ont une place fixe, qui ne dépend pas de ce qui est déplié.
+   Les sous-idées partent sur la colonne suivante, au niveau de leur parent ; si la place est prise par les idées d'une autre branche,
+   elles se rangent juste en dessous. Déplier ou ajouter une idée ne déplace donc jamais les autres branches. */
 function layout(){
   POS=new Map();POS.set(ROOT,{x:0,y:0,d:0,side:0});
-  const top=kidsOf(ROOT),GAPY=24,GAPB=56,X1=380,DX=275,sub=new Map(),lead=new Map();
-  const span=id=>{const ks=collapsed.has(id)?[]:kidsOf(id);if(!ks.length){sub.set(id,boxH(id));return boxH(id)}
-    const l=Math.max(0,(boxH(id)-boxH(ks[0].id))/2);lead.set(id,l);
-    let s=l;for(const k of ks)s+=span(k.id)+GAPY;s=Math.max(boxH(id),s-GAPY);sub.set(id,s);return s};
-  top.forEach(k=>span(k.id));
+  const top=kidsOf(ROOT),GAPY=24,GAPB=56,GAPC=44,X1=380,DX=275,col=new Map();
   const R=[],L=[];top.forEach((k,i)=>(sideOf(k,i)>0?R:L).push(k));
-  const placeKids=(id,x,yTop,d,side)=>{POS.set(id,{x,y:yTop+boxH(id)/2,d,side});
-    const ks=collapsed.has(id)?[]:kidsOf(id);let y=yTop+(lead.get(id)||0);
-    for(const k of ks){placeKids(k.id,x+side*DX,y,d+1,side);y+=sub.get(k.id)+GAPY}};
-  const placeSide=(list,side)=>{// chaque côté commence toujours à la même hauteur : une nouvelle branche se range en dessous sans rien pousser
-    let y=-280;
-    for(const k of list){placeKids(k.id,side*X1,y,1,side);y+=sub.get(k.id)+GAPB}};
+  const place=(id,x,y,d,side)=>{POS.set(id,{x,y,d,side});
+    const ks=collapsed.has(id)?[]:kidsOf(id);if(!ks.length)return;
+    const key=side+':'+(d+1);let t=y-boxH(ks[0].id)/2;if(col.has(key))t=Math.max(t,col.get(key));
+    for(const k of ks){const h=boxH(k.id);place(k.id,x+side*DX,t+h/2,d+1,side);t+=h+GAPY}
+    col.set(key,t-GAPY+GAPC)};
+  const placeSide=(list,side)=>{let y=-280;for(const k of list){const h=boxH(k.id);place(k.id,side*X1,y+h/2,1,side);y+=h+GAPB}};
   placeSide(R,1);placeSide(L,-1);
   // déplacements faits à la main (glisser-déposer) : une branche emmène toutes ses idées
   const off=id=>{const n=nodes.get(id),d=DRAG.get(id);return d||{ox:(n&&+n.ox)||0,oy:(n&&+n.oy)||0}};
@@ -527,8 +524,8 @@ stage.addEventListener('click',e=>{if(moved)return;const t=e.target===stage&&dow
   const n=t.closest('.node');
   if(t.closest('.addBranch')){addChild(ROOT);return}
   if(t.closest('.plus')&&n){addChild(n.dataset.id);return}
-  if(t.closest('.tog')&&n){const id=n.dataset.id,open=collapsed.has(id);if(open)collapsed.delete(id);else collapsed.add(id);saveFold();render();if(open)setTimeout(()=>frame(id),40);return}
-  if(n&&collapsed.has(n.dataset.id)){collapsed.delete(n.dataset.id);saveFold();framing=true;select(n.dataset.id);framing=false;setTimeout(()=>frame(n.dataset.id),40);return}
+  if(t.closest('.tog')&&n){const id=n.dataset.id,open=collapsed.has(id);if(open)collapsed.delete(id);else collapsed.add(id);saveFold();render();return}
+  if(n&&collapsed.has(n.dataset.id)){collapsed.delete(n.dataset.id);saveFold();framing=true;select(n.dataset.id);framing=false;return}
   if(n)select(n.dataset.id);else if(sel){sel=null;confirmDel=false;render();if(room)room.presence({sel:null}).catch(()=>{})}});
 stage.addEventListener('dblclick',e=>{const n=e.target.closest('.node');if(n&&!e.target.closest('.plus,.addBranch,.tog'))select(n.dataset.id,true)});
 stage.addEventListener('keydown',e=>{const n=e.target.closest('.node');if(n&&(e.key==='Enter'||e.key===' ')&&e.target.classList.contains('box')){e.preventDefault();select(n.dataset.id,true)}});
