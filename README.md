@@ -1,6 +1,6 @@
 # La Serre Clandestine
 
-Jeu 2D en vue de dessus dans le quartier des Lilas, avec multijoueur en ligne.
+Jeu en 3D, à la troisième personne, dans le quartier des Lilas, avec multijoueur en ligne.
 **Aucun compte n'est nécessaire** : il suffit d'ouvrir l'adresse du jeu.
 Le jeu et son serveur tiennent dans ce dossier, **sans dépendance à installer** : il faut seulement Node.js.
 
@@ -9,8 +9,10 @@ la-serre-clandestine/
 ├── server.js              ← le serveur (pages du jeu + multijoueur + sauvegardes)
 ├── package.json
 ├── public/
-│   ├── index.html         ← le jeu complet
-│   └── claude-shim.js     ← branche le multijoueur et les sauvegardes du jeu sur server.js
+│   ├── index.html         ← la page du jeu (affichage, menus)
+│   ├── game.js            ← tout le jeu
+│   ├── claude-shim.js     ← branche le multijoueur et les sauvegardes du jeu sur server.js
+│   └── vendor/            ← Three.js, le moteur 3D (fourni, rien à installer)
 ├── data/                  ← créé tout seul : les sauvegardes en ligne (saves.json)
 ├── CLAUDE.md              ← notes pour Claude Code
 └── README.md
@@ -58,7 +60,7 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 - **Sans rien faire**, tous ceux qui ouvrent l'adresse se retrouvent dans la **partie publique**.
 - **Partie privée** : Menu → Multijoueur → **Créer une partie**. Donne le code de 5 caractères à tes amis. Ils l'entrent dans le même onglet et cliquent sur **Rejoindre**.
 - **T** : chat. **H** : klaxon. L'étiquette en haut à droite indique la partie et le nombre de joueurs, ou « hors ligne » en rouge si le serveur ne répond pas.
-- Chacun garde son argent, sa serre, sa police et ses gangs. Ce qui est partagé : la ville, l'heure, la météo, les positions et le chat.
+- Chacun garde son argent, son labo, sa police et ses gangs. Ce qui est partagé : la ville, l'heure, la météo, les positions et le chat.
 
 ## Réglages (variables d'environnement)
 
@@ -67,7 +69,17 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 | `PORT`     | `3000`     | port du serveur (Render le fixe tout seul) |
 | `DATA_DIR` | `./data`   | dossier des sauvegardes en ligne |
 
+## Le labo
+
+Le labo commence vide. Le menu de gestion s'ouvre seulement à l'ordinateur, sur le bureau près de l'entrée du labo.
+1. À l'ordinateur, onglet **Boutique** : achète des machines (pots, bacs, tables hydroponiques, arroseurs, séchoirs, en 3 niveaux) et des graines.
+2. Dans le labo, approche-toi d'un emplacement : **installe** une machine, **plante**, **arrose**, **taille** à mi-pousse (+20 % de récolte), **récolte**.
+3. Charge la récolte dans un **séchoir** : c'est le produit séché que tu vends aux clients.
+4. Agrandis le labo (Améliorations) et embauche un jardinier (Équipe) pour automatiser.
+
 ## Commandes du jeu
 
-Flèches ou ZQSD : conduire · Espace : frein à main · E : entrer / parler / se cacher · H : klaxon · G : go fast · M : menu · N : carte · T : chat.
-Sur téléphone : les boutons à l'écran.
+- **À pied** : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d'action à droite (ou E), Options (ou R).
+- **En voiture** : flèches à l'écran (ou ZQSD / flèches), DRIFT = frein à main (Espace), H : klaxon, G : go fast. Le bouton d'action devient « Descendre ».
+- **Partout** : glisse sur l'écran pour tourner la caméra · N : carte · T : chat.
+- On entre dans les boutiques et dans le labo à pied, par la porte. Poursuivi par la police ? Entre dans une boutique avant qu'ils soient trop près.
