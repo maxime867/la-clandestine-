@@ -1606,7 +1606,7 @@ function findTarget(){
   let bd=1e9;
   const chased=cops.some(c=>!c.calm)||threat,nc=cops.reduce((m,c)=>Math.min(m,Math.hypot(c.x-P.x,c.z-P.z)),1e9);
   for(const s of SHOPS){const d=Math.hypot(P.x-s.x,P.z-s.z)-1;if(d<4&&d<bd){bd=d;
-    tgt=chased?(nc>35?{k:'hide',s,label:'Se cacher : '+s.name}:{k:'info',label:'Flics trop près pour se cacher'}):{k:'shop',s,label:'Entrer : '+s.name}}}
+    tgt=chased?(nc>22?{k:'hide',s,label:'Se cacher : '+s.name}:{k:'info',label:'Flics trop près pour se cacher'}):{k:'shop',s,label:'Entrer : '+s.name}}}
   if(LAB){const d=Math.hypot(P.x-LAB.sh.door.x,P.z-LAB.sh.door.z);if(d<3.2&&d<bd){bd=d;tgt={k:'enterlab',label:'Entrer dans le labo'}}}
   if(CAR){const d=Math.hypot(P.x-CAR.x,P.z-CAR.z);if(d<4.2&&d<bd){bd=d;tgt={k:'enter',label:'Monter : '+VM[CAR.id].name}}}
   for(const p of peds){const d=Math.hypot(P.x-p.x,P.z-p.z);if(d>=3.4||d>=bd)continue;
@@ -4428,6 +4428,11 @@ $('bPhone').onclick=()=>{if(started&&!ended&&!paused())readPhone()};
 /* ---------- la police : beaucoup de patrouilles, en voiture et à pied ---------- */
 const COP_LOOK={skin:0xe3b895,shirt:0x1f2e4a,pants:0x1a2236,shoe:0x111111,hair:0x16110e,cap:0x1a2236};
 let FCOPS=[];
+/* semer la police : les flics ne savent où tu es que s'ils te voient (SEE m). Hors de leur vue pendant LOSE s, ils perdent ta trace. */
+const CHASE={lost:0,on:0,tip:0,lostT:0};
+const copSee=()=>TOD.n>.5?55:75,COP_LOSE=5;
+const copLOS=(x0,z0,x1,z1)=>{const d=Math.hypot(x1-x0,z1-z0),n=Math.ceil(d/2.5);for(let i=1;i<n;i++){const t=i/n;if(maskAt(x0+(x1-x0)*t,z0+(z1-z0)*t)===4)return false}return true};
+const copSpeed=()=>{const pv=P.def.vmax*(P.def.kind==='bike'||P.def.kind==='foot'?1:mot());return clamp(pv*.86+3,24,72)+(M?4:0)};
 updCops=function(dt){
   const carrying=bagTot()>0||M,night=TOD.n,op=opLilas();
   const patrol=Math.max(2,Math.round((op?9:5)*(1-.3*night)))+(G.heat>=40?1:0);
@@ -4436,8 +4441,8 @@ updCops=function(dt){
   spawnT-=dt;
   if(cops.length<want&&spawnT<=0){const nc=cops.filter(c=>!c.calm).length<chase,p=randRoadPoint(P.x,P.z,nc?170:80,nc?280:230),a=mkAI({k:'sedan',c:0xf2f2f4,cop:1},p.x,p.z,R(0,6.28),2.3);a.catch=0;a.calm=true;a.path=[];cops.push(a);spawnT=chase>cops.filter(c=>!c.calm).length?2.5:3}
   const ord=cops.slice().sort((a,b)=>Math.hypot(a.x-P.x,a.z-P.z)-Math.hypot(b.x-P.x,b.z-P.z));
-  ord.forEach((c,i)=>{const w=i<chase;if(c.calm&&w){c.path=[];c.t=0}c.calm=!w});
-  let chasing=0;
+  ord.forEach((c,i)=>{const w=i<chase;if(c.calm&&w){c.path=[];c.t=0;const d=Math.hypot(c.x-P.x,c.z-P.z);}c.calm=!w});
+  let chasing=0,seeNow=0;const SEE=copSee(),vt=copSpeed();
   for(const c of cops.slice()){
     const d=Math.hypot(P.x-c.x,P.z-c.z);
     if((cops.length>want&&d>160)||d>520){cops=cops.filter(q=>q!==c);continue}
@@ -4445,12 +4450,23 @@ updCops=function(dt){
       if(!c.path.length){const p=randRoadPoint(P.x,P.z,30,200);c.path=lanePath([c.x,c.z],pathTo(c.x,c.z,p.x,p.z))}
       followPath(c,dt,HIDE?26:19);continue}
     chasing++;
-    c.t-=dt;if(c.t<=0){c.t=.8;c.path=pathTo(c.x,c.z,P.x,P.z)}
-    const vt=Math.min(54+G.heat*.22,78)+(M?8:0);
-    if(d<45)aiMove(c,P.x,P.z,dt,vt);else followPath(c,dt,vt);
+    // savoir partagé par radio : tant qu'un flic te voit, tous savent où tu es ; sinon ils filent vers le dernier endroit connu
+    if(d<12||d<SEE&&copLOS(c.x,c.z,P.x,P.z))seeNow=1;
+    const lk=CHASE.lk||[P.x,P.z],blind=CHASE.lost>.3;
+    c.t-=dt;if(c.t<=0){c.t=.8;c.path=pathTo(c.x,c.z,lk[0],lk[1])}
+    if(d<45&&!blind)aiMove(c,P.x,P.z,dt,vt);else if(followPath(c,dt,blind?vt*.8:vt)&&blind){c.v*=.9}
     if(d<6.5&&!inLab())c.catch+=dt*(P.v<8?2:1);else c.catch=Math.max(0,c.catch-dt*2);
     if(c.catch>1.6){arrest();return}
   }
+  // début de poursuite : le central donne ta position pendant 6 s ; ensuite il faut qu'un flic te voie
+  if(!chasing){CHASE.lost=-6;CHASE.lk=[P.x,P.z]}
+  else{if(!CHASE.on)CHASE.lost=-6;if(seeNow)CHASE.lost=Math.min(CHASE.lost,0);else CHASE.lost+=dt;if(CHASE.lost<=0)CHASE.lk=[P.x,P.z]}
+  const lost=CHASE.lost;CHASE.on=chasing;CHASE.tip-=dt;
+  if(chasing&&CHASE.tip<=0&&!(G.tipChase>2)){CHASE.tip=90;G.tipChase=(G.tipChase||0)+1;toast('Police aux trousses : sors de leur vue (virages, ruelles, ponts) pendant '+COP_LOSE+' s pour les semer, ou cache-toi dans une boutique.','bad')}
+  if(chasing&&lost>=COP_LOSE){
+    G.heat=Math.min(G.heat,12);for(const c of cops){c.calm=true;c.path=[];c.catch=0}chasing=0;CHASE.on=0;CHASE.lostT=3;
+    toast('Tu les as semés ! Ils ont perdu ta trace.','good');Sfx.cash&&Sfx.cash()}
+  CHASE.lostT=Math.max(0,CHASE.lostT-dt);
   // semer la police : une poursuite qui se termine sans arrestation
   const s=STO();if(chasing)s.f.wasChased=1;else if(s.f.wasChased&&G.heat<35){s.f.wasChased=0;s.f.escaped=1;if(s.q==='police')toast('Tu as semé la police !','good')}
   updFootCops(dt);
@@ -4704,6 +4720,7 @@ function updStory(dt){
   SBAN=null;
   if(ZONE&&Math.hypot(P.x-ZONE.x,P.z-ZONE.z)<ZONE.r)SBAN={txt:`Zone de contrôle de police · ${Math.ceil(ZONE.t)} s${bagTot()?' · ton sac attire l’attention !':''}`,bg:'rgba(180,40,30,.92)'};
   else if(RAID&&RAID.warned)SBAN={txt:`Descente annoncée sur ton labo dans ${Math.ceil(RAID.t)} s`,bg:'rgba(180,90,30,.92)'};
+  else if(CHASE.on&&!HIDE)SBAN=CHASE.lost>.4?{txt:`Ils t’ont perdu de vue · encore ${Math.max(1,Math.ceil(COP_LOSE-CHASE.lost))} s et tu les sèmes`,bg:'rgba(40,110,60,.92)'}:{txt:'Police aux trousses · sors de leur vue pour les semer',bg:'rgba(30,60,170,.92)'};
   else if(ATK)SBAN={txt:`Attaque d’El Refe en cours · ${Math.ceil(ATK.t)} s`,bg:'rgba(150,110,20,.92)'};
   renderQuest(false);phoneBtn();
 }
