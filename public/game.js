@@ -5112,6 +5112,58 @@ function updPvp(dt){
 {const o=updStory;updStory=function(dt){o(dt);updPvp(dt)}}
 if(/[?&]debug=1\b/.test(location.search))window.__pvp={get raid(){return PVP.raid},paused:()=>paused(),PVP};
 
+/* ---------- ordinateur du labo : un bureau avec des applis au lieu d'une barre d'onglets ---------- */
+/* Ouvrir l'ordinateur montre le « bureau » : une grille de grosses tuiles (faciles à toucher sur mobile),
+   chacune avec un petit résumé en direct et un point rouge quand quelque chose t'attend.
+   Une tuile ouvre l'appli en plein écran ; « ← Bureau » (ou Échap) ramène au bureau. Les boutiques gardent leur menu à un seul onglet. */
+const PC_APPS=[
+  ['labo','🌿','Labo'],['shop','📦','Commander'],['ups','🔧','Améliorer'],
+  ['team','👥','Équipe'],['garage','🚗','Garage'],['clients','📍','Clients'],
+  ['bosses','🤝','Gérants'],['mp','🌐','En ligne'],['save','💾','Sauvegarde']];
+const pcSafe=(f,d='')=>{try{return f()}catch(e){return d}};
+function pcBadge(id){
+  switch(id){
+    case 'labo':{const it=G.lab.items.filter(i=>i.pl),rdy=it.filter(i=>i.pl.p>=1&&i.pl.hp>0).length,dry=it.filter(i=>i.pl.p<1&&i.pl.w<30&&i.pl.hp>0).length;
+      return rdy?[`${rdy} prête${rdy>1?'s':''}`,1]:dry?[`${dry} assoiffée${dry>1?'s':''}`,1]:[`${it.length} plante${it.length>1?'s':''}`,0]}
+    case 'shop':{const n=(G.deliv||[]).length;return n?[`${n} en route`,0]:[`${seedTot()} graines`,0]}
+    case 'ups':{const n=UPS.filter(u=>lv(u.id)<u.max&&G.cash>=upCost(u)).length;return n?[`${n} possible${n>1?'s':''}`,1]:['Rien à prendre',0]}
+    case 'team':{const n=TEAM.reduce((a,u)=>a+lv(u.id),0);return [`${n} recrue${n>1?'s':''}`,0]}
+    case 'garage':return [VM[G.veh]?VM[G.veh].name:'À pied',0];
+    case 'clients':{const n=orders.filter(o=>canDeliver(o)).length;return orders.length?[`${orders.length} commande${orders.length>1?'s':''}`,n?1:0]:['Personne',0]}
+    case 'bosses':{const w=BIDS.filter(b=>!G.retired[b]&&['war','hostile'].includes(stance(b))).length;return w?[`${w} hostile${w>1?'s':''}`,1]:['Calme',0]}
+    case 'mp':{const n=MP.others?MP.others.size:0;return [n?`${n} en ligne`:'Seul ici',0]}
+    case 'save':return [G.code?G.code:'Pas de code',0];
+  }
+  return ['',0];
+}
+function tabHome(){
+  const k=(l,v)=>`<div><small>${l}</small><b>${v}</b></div>`;
+  let s=`<div class="kpis">${k('Sale',fmt(G.cash))}${k('Propre',fmt(G.clean||0))}${k('Produit',pcSafe(()=>tot()+'/'+cap()))}${k('Récolte',pcSafe(rawTot,0))}</div>`;
+  s+='<div class="apps">'+PC_APPS.map(([id,ic,nm])=>{const [b,warn]=pcSafe(()=>pcBadge(id),['',0]);
+    return `<button class="app${warn?' warn':''}" data-act="tab:${id}" aria-label="${nm}${b?' : '+esc(String(b)):''}"><i aria-hidden="true">${ic}</i><b>${nm}</b><small>${esc(String(b))}</small></button>`}).join('')+'</div>';
+  s+='<p class="note">Touche une appli pour l’ouvrir. Le point rouge veut dire que quelque chose t’attend.</p>';
+  return s;
+}
+TABS.home=['Ordinateur',tabHome];
+/* bouton retour dans l'en-tête */
+{const h=$('mTitle').parentNode,b=document.createElement('button');
+  b.className='btn ghost';b.id='mBack';b.type='button';b.dataset.act='tab:home';b.textContent='← Bureau';b.hidden=true;
+  h.insertBefore(b,$('mTitle'))}
+{const o=renderMenu;renderMenu=function(){
+  if(!TABS[tab])tab='home';
+  o();
+  $('tabs').hidden=true;
+  $('mBack').hidden=menuOnly||tab==='home';
+  $('menu').classList.toggle('pcHome',tab==='home'&&!menuOnly);
+}}
+/* ouvrir l'ordinateur (sans boutique) arrive sur le bureau */
+{const o=openMenu;openMenu=function(t,only){if(!only&&(!t||t==='labo'))t='home';o(t,only)}}
+/* Échap : d'abord revenir au bureau, puis fermer */
+addEventListener('keydown',e=>{
+  if(e.key!=='Escape'||!menuOpen||menuOnly||tab==='home'||talking||bagOpen)return;
+  tab='home';confirmReset=false;$('body').scrollTop=0;renderMenu();e.preventDefault();e.stopImmediatePropagation();
+},true);
+
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */
 const CROSS=[];

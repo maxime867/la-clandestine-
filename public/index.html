@@ -264,6 +264,25 @@ h2{font-size:18px}
 #quest.crew small{color:#7fd1ff}
 .mode .tl{font-size:13px;margin:6px 0 0;color:var(--muted);font-weight:600}
 #teamList .item .btn{white-space:nowrap}
+/* ordinateur du labo : bureau à tuiles */
+#mBack{flex:none;padding:8px 12px;font-size:14px}
+.sheet header h2{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.app{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:112px;padding:12px 6px;background:var(--bg);border:1px solid var(--line);border-radius:14px;color:var(--fg);cursor:pointer;font:inherit;text-align:center;-webkit-tap-highlight-color:transparent;transition:transform .08s,border-color .15s}
+.app:hover{border-color:var(--lamp)}
+.app:active{transform:scale(.96);background:var(--panel2)}
+.app:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.app i{font-style:normal;font-size:32px;line-height:1.1}
+.app b{font-family:var(--display);font-weight:400;font-size:15px;color:var(--lamp)}
+.app small{font-family:var(--mono);font-size:11px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app.warn::after{content:"";position:absolute;top:9px;right:9px;width:10px;height:10px;border-radius:50%;background:var(--heat);box-shadow:0 0 0 2px var(--bg)}
+.app.warn small{color:var(--fg)}
+@media (max-width:560px){
+  #menu{padding:0}
+  #menu .sheet{width:100%;height:100%;max-height:none;border-radius:0;border:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  #menu .sheet header{padding:10px 12px;position:sticky;top:0}
+  #mClose{padding:8px 12px}
+}
 </style>
 <script src="claude-shim.js"></script>
 </head>
