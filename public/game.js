@@ -5181,6 +5181,126 @@ addEventListener('keydown',e=>{
   tab='home';confirmReset=false;$('body').scrollTop=0;renderMenu();e.preventDefault();e.stopImmediatePropagation();
 },true);
 
+/* ---------- manette (API Gamepad : Xbox, PlayStation, Switch Pro…) ---------- */
+/* À pied : stick gauche ou croix = marcher, A = action, X = frapper, Y = options, Start = sac, Select = carte.
+   Au volant : RT = accélérer, LT = freiner / reculer, stick gauche ou croix = tourner, B = frein à main, X = klaxon, RB = go fast.
+   Menus, dialogues, boutiques, lobby : croix ou stick = se déplacer entre les boutons, A = valider, B = retour / fermer. */
+const GP={idx:null,prev:[],held:{},joy:false,nav:0,last:null,on:false,rumble:0};
+const GPB={A:0,B:1,X:2,Y:3,LB:4,RB:5,LT:6,RT:7,SEL:8,START:9,UP:12,DOWN:13,LEFT:14,RIGHT:15};
+const GP_DZ=.22;
+function gpPad(){
+  let pads=[];try{pads=navigator.getGamepads?navigator.getGamepads():[]}catch(e){}
+  if(GP.idx!==null&&pads[GP.idx]&&pads[GP.idx].connected)return pads[GP.idx];
+  for(const p of pads)if(p&&p.connected){GP.idx=p.index;return p}
+  return null;
+}
+const gpVal=(p,i)=>{const b=p.buttons[i];return b?(typeof b==='object'?(b.pressed?Math.max(b.value,.5):b.value):b):0};
+function gpRumble(ms=90,s=.5,w=.3){const p=gpPad();try{p&&p.vibrationActuator&&p.vibrationActuator.playEffect('dual-rumble',{duration:ms,strongMagnitude:s,weakMagnitude:w})}catch(e){}}
+function gpKey(key){document.body.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}))}
+function gpSetKey(k,v){if(v&&!GP.held[k]){keys[k]=1;GP.held[k]=1}else if(!v&&GP.held[k]){keys[k]=0;GP.held[k]=0}}
+function gpRelease(){for(const k in GP.held)if(GP.held[k]){keys[k]=0;GP.held[k]=0}if(GP.joy){GP.joy=false;if(J.id===null){J.on=false;J.x=J.y=0}}}
+/* fenêtre ouverte au premier plan (pour naviguer entre ses boutons) */
+function gpRoot(){
+  if(CINE)return null;
+  for(const id of ['talk','raid','end','bag','shop','menu','start']){const e=$(id);if(e&&!e.hidden&&e.getClientRects().length)return e}
+  return null;
+}
+function gpItems(root){
+  return [...root.querySelectorAll('button,input,summary,[role="button"],a[href]')].filter(e=>!e.disabled&&e.getClientRects().length&&!e.closest('[hidden]')&&getComputedStyle(e).visibility!=='hidden');
+}
+function gpFocus(el){
+  if(GP.last&&GP.last!==el)GP.last.classList.remove('gpf');
+  GP.last=el;if(!el)return;el.classList.add('gpf');
+  try{el.focus({preventScroll:true})}catch(e){}
+  el.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function gpMove(root,dx,dy){
+  const it=gpItems(root);if(!it.length)return;
+  const cur=GP.last&&it.includes(GP.last)?GP.last:null;
+  if(!cur){gpFocus(it[0]);return}
+  const a=cur.getBoundingClientRect(),ax=a.left+a.width/2,ay=a.top+a.height/2;
+  let best=null,bs=1e9;
+  for(const e of it){if(e===cur)continue;const b=e.getBoundingClientRect(),bx=b.left+b.width/2,by=b.top+b.height/2;
+    const along=(bx-ax)*dx+(by-ay)*dy,across=Math.abs((bx-ax)*dy-(by-ay)*dx);
+    if(along<=2)continue;const sc=along+across*2.2;if(sc<bs){bs=sc;best=e}}
+  if(!best){// rien dans cette direction : on fait le tour de la liste
+    const i=it.indexOf(cur),n=dx+dy>0?it[(i+1)%it.length]:it[(i-1+it.length)%it.length];best=n}
+  gpFocus(best);
+}
+function gpLoop(now){
+  requestAnimationFrame(gpLoop);
+  const p=gpPad();
+  if(!p){if(GP.on){GP.on=false;gpRelease();document.body.classList.remove('gp')}return}
+  if(!GP.on){GP.on=true;document.body.classList.add('gp')}
+  if(started&&!GP.told&&!CINE){GP.told=1;toast('🎮 Manette prête. A : action · X : frapper · Y : options · Start : sac · Select : carte · B : retour. Au volant : RT / LT, B frein à main.','good')}
+  const btn=[];for(let i=0;i<17;i++)btn[i]=gpVal(p,i)>.5;
+  const down=i=>btn[i]&&!GP.prev[i];
+  const ax=p.axes[0]||0,ay=p.axes[1]||0,mag=Math.hypot(ax,ay);
+  if(btn.some(Boolean)||mag>GP_DZ)document.body.classList.add('gp');
+  const root=gpRoot();
+  // cinématique : A = suite, B ou Start = passer
+  if(CINE){gpRelease();if(down(GPB.A))gpKey('Enter');else if(down(GPB.B)||down(GPB.START))gpKey('Escape');GP.prev=btn;return}
+  // carte en grand
+  if(mapBig){gpRelease();if(down(GPB.B)||down(GPB.SEL)||down(GPB.A))toggleMap();GP.prev=btn;return}
+  if(root){
+    gpRelease();
+    // déplacement entre les boutons : croix (à chaque appui) ou stick (répétition)
+    let dx=0,dy=0;
+    if(down(GPB.UP))dy=-1;else if(down(GPB.DOWN))dy=1;else if(down(GPB.LEFT))dx=-1;else if(down(GPB.RIGHT))dx=1;
+    else if(mag>.6&&now>GP.nav){if(Math.abs(ax)>Math.abs(ay))dx=Math.sign(ax);else dy=Math.sign(ay)}
+    if(mag<.35&&!btn[GPB.UP]&&!btn[GPB.DOWN]&&!btn[GPB.LEFT]&&!btn[GPB.RIGHT])GP.nav=0;
+    if(dx||dy){gpMove(root,dx,dy);GP.nav=now+(GP.nav?140:320)}
+    // stick droit : faire défiler la fenêtre
+    const ry=p.axes[3]||0;if(Math.abs(ry)>.3){const sc=root.querySelector('#body,#shBody,#bagBody,.sheet');if(sc)sc.scrollTop+=ry*14}
+    if(down(GPB.A)){const it=gpItems(root);const el=GP.last&&it.includes(GP.last)?GP.last:null;
+      if(el){if(el.tagName==='INPUT')el.focus();else el.click();
+        // après un clic, la fenêtre peut avoir été redessinée : on se remet sur un bouton présent
+        setTimeout(()=>{const r=gpRoot();if(r&&!(GP.last&&r.contains(GP.last)&&GP.last.isConnected)){const l=gpItems(r);if(l.length)gpFocus(l[0])}},60)}
+      else gpMove(root,0,1)}
+    if(down(GPB.B)){
+      if(root.id==='talk'){}
+      else if(root.id==='bag')closeBag();
+      else if(root.id!=='start')gpKey('Escape')}
+    if(down(GPB.START)&&root.id==='bag')closeBag();
+    GP.prev=btn;return}
+  if(GP.last){GP.last.classList.remove('gpf');GP.last=null}
+  if(!started||ended||paused()){gpRelease();GP.prev=btn;return}
+  const foot=P.def.kind==='foot';
+  if(foot){
+    // stick gauche analogique (comme le joystick tactile) ou croix
+    if(J.id===null){
+      if(mag>GP_DZ){const m=Math.min(1,(mag-GP_DZ)/(1-GP_DZ));J.x=ax/mag*m;J.y=ay/mag*m;J.on=true;GP.joy=true}
+      else if(GP.joy){GP.joy=false;J.on=false;J.x=J.y=0}
+    }
+    gpSetKey('up',btn[GPB.UP]);gpSetKey('dn',btn[GPB.DOWN]);gpSetKey('l',btn[GPB.LEFT]);gpSetKey('r',btn[GPB.RIGHT]);gpSetKey('sp',false);
+    gpSetKey('walk',btn[10]);
+    if(down(GPB.X)){doPunch();gpRumble(70,.35,.2)}
+  }else{
+    if(GP.joy){GP.joy=false;if(J.id===null){J.on=false;J.x=J.y=0}}
+    gpSetKey('up',gpVal(p,GPB.RT)>.15||btn[GPB.UP]||btn[GPB.A]&&false);
+    gpSetKey('dn',gpVal(p,GPB.LT)>.15||btn[GPB.DOWN]);
+    gpSetKey('l',ax<-.35||btn[GPB.LEFT]);gpSetKey('r',ax>.35||btn[GPB.RIGHT]);
+    gpSetKey('sp',btn[GPB.B]);gpSetKey('walk',false);
+    if(down(GPB.X))honk();
+    if(down(GPB.RB))startFast();
+    // vibre un peu en accélérant fort ou en dérapant
+    if(P.slip>.5&&now>GP.rumble){GP.rumble=now+250;gpRumble(120,.25,.4)}
+  }
+  if(down(GPB.A))act();
+  if(down(GPB.Y))actOpt();
+  if(down(GPB.START))openBag();
+  if(down(GPB.SEL))toggleMap();
+  if(down(GPB.LB)&&mpReady&&mpReady())openChat();
+  GP.prev=btn;
+}
+addEventListener('gamepadconnected',e=>{GP.idx=e.gamepad.index;if(!started){const r=gpRoot();if(r){const l=gpItems(r);if(l.length)gpFocus(l[0])}}});
+addEventListener('gamepaddisconnected',e=>{if(GP.idx===e.gamepad.index){GP.idx=null;gpRelease();if(started)toast('🎮 Manette déconnectée.','bad')}});
+addEventListener('touchstart',()=>{document.body.classList.remove('gp')},{passive:true});
+/* une vibration quand on prend un coup ou qu'on se fait arrêter */
+{const o=arrest;arrest=function(){gpRumble(400,1,.8);return o.apply(this,arguments)}}
+requestAnimationFrame(gpLoop);
+if(/[?&]debug=1\b/.test(location.search))window.__pad={GP,gpRoot,gpItems};
+
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */
 const CROSS=[];

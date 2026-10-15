@@ -283,6 +283,14 @@ h2{font-size:18px}
   #menu .sheet header{padding:10px 12px;position:sticky;top:0}
   #mClose{padding:8px 12px}
 }
+
+/* manette */
+.gpf{outline:3px solid var(--lamp)!important;outline-offset:2px;box-shadow:0 0 0 6px rgba(255,166,61,.25)!important}
+body.gp #joy,body.gp #carCtl{display:none!important}
+body.gp #bAct::before{content:"Ⓐ ";opacity:.85}
+body.gp #bOpt::before{content:"Ⓨ ";opacity:.85}
+body.gp #bPunch small::before{content:"Ⓧ "}
+body.gp #hud:not(.car) #actBox{bottom:calc(104px + env(safe-area-inset-bottom))}
 </style>
 <script src="claude-shim.js"></script>
 </head>
@@ -400,6 +408,7 @@ h2{font-size:18px}
         <div class="item"><b>Perdre : la prison</b><span>Trois arrestations. Le casier s’efface d’un cran toutes les 8 minutes sans arrestation.</span></div>
         <div class="item"><b>Ton labo</b><span>Plante, arrose (l’arrosoir se remplit au robinet), taille, récolte, puis passe la récolte au séchoir : le produit séché va dans la réserve. Remplis ton sac aux étagères pour aller le vendre. Les machines se placent où tu veux.</span></div>
         <div class="item"><b>Commandes</b><span>À pied : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d’action à droite (ou E), Options (ou R), 👊 frapper (ou F). 🎒 (ou B) : sac à dos. En voiture : flèches à l’écran (ou ZQSD / flèches), DRIFT = frein à main (Espace). N : carte. T : chat. H : klaxon. G : go fast.</span></div>
+        <div class="item"><b>Manette</b><span>Branche une manette (Xbox, PlayStation…) et appuie sur un bouton. À pied : stick gauche pour marcher, A action, X frapper, Y options, Start sac, Select carte, LB chat. Au volant : RT accélérer, LT freiner, stick pour tourner, B frein à main, X klaxon, RB go fast. Dans les menus : croix pour choisir, A valider, B retour.</span></div>
         <div class="item"><b>Police</b><span>Des patrouilles tournent en permanence. Elles te prennent en chasse si tu chauffes, ou si elles te voient vendre ou frapper. Pour les semer, cache-toi dans une boutique ou roule vite et loin.</span></div>
       </div></details>
       <div class="chips" style="align-items:center"><input id="startCode" placeholder="XXXX-XXXX" maxlength="9" aria-label="Code de sauvegarde" autocomplete="off"><button class="btn ghost" id="startLoad">Charger une histoire sauvegardée</button><span class="note" id="startMsg"></span></div>
