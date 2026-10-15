@@ -15,7 +15,7 @@ const SAVES_FILE = path.join(DATA_DIR, 'saves.json');
 
 const ROOM_RE = /^[a-z0-9][a-z0-9_.-]{0,47}$/;
 const TOPIC_RE = /^[a-z0-9_.-]{1,32}$/;
-const SAVE_RE = /^saves\/[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+const SAVE_RE = /^(saves\/[A-Z0-9]{4}-[A-Z0-9]{4}|crews\/[A-Z0-9]{5})$/; // sauvegardes de partie, serres partagées
 const MAX_MSG = 4096;          // présence et événements : 4 Ko max
 const MAX_FRAME = 16384;       // trame WebSocket entrante max
 const MAX_RATE = 60;           // messages par seconde et par connexion

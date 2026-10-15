@@ -68,6 +68,12 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 | `PORT`     | `3000`     | port du serveur (Render le fixe tout seul) |
 | `DATA_DIR` | `./data`   | dossier des sauvegardes en ligne |
 
+## Deux modes
+
+À l'ouverture, un lobby propose :
+- **Mode histoire** (solo) : les cinq chapitres avec El Refe, décrits ci-dessous.
+- **Mode multijoueur** : pas d'histoire. « Créer une serre » donne un code à 5 caractères ; tes amis le tapent dans « Rejoindre une serre ». Vous entrez tous dans le même labo : machines, plantes, graines, récolte, réserve, améliorations et équipe sont communs. Chacun garde son argent, son sac et ses véhicules, et ce que rapportent les dealers et livreurs est partagé. La serre est sauvegardée sur le serveur : on la retrouve avec « Reprendre la serre ».
+
 ## L'histoire
 
 Tu as dix-neuf ans et ton père vient de te mettre dehors. La ville est coupée en deux par la rivière : le **Sud**, tenu par **El Refe**, et le **Nord**, tenu par **Madame Vega**. Une carte « Objectif » en haut à gauche et une flèche jaune te guident à travers cinq chapitres :

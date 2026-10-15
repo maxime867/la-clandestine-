@@ -234,7 +234,7 @@ function migrate(g){
 let G=null;
 try{G=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!G||(G.v!==4&&G.v!==5)||typeof G.cash!=='number')G=newG();else migrate(G);
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
+const save=()=>{try{localStorage.setItem(G&&G.mode==='multi'?'serre-mp-v1':KEY,JSON.stringify(G))}catch(e){}};
 const lv=id=>G.lv[id]||0;
 const inv=id=>(G.inv&&G.inv[id])||0;
 const HOMEP={...DEFD};const H=()=>HOMEP;
@@ -926,7 +926,7 @@ for(let i=0;i<150;i++)RAIN.push({x:Math.random(),y:Math.random(),s:R(.8,1.4)});
 const puff=(x,z,vx,vz,r,life,a)=>{if(PT.length<520)PT.push({k:0,x,z,vx,vz,r,l:life,m:life,a:a||.5})};
 function sparks(x,z,n,pow){for(let i=0;i<n;i++){const a=R(0,6.28),s=R(4,(pow||12));if(PT.length<520)PT.push({k:1,x,z,vx:Math.cos(a)*s,vz:Math.sin(a)*s,r:0,l:R(.15,.4),m:.4,a:1})}}
 function coins(x,z,n){for(let i=0;i<n;i++){const a=R(0,6.28),s=R(5,13);if(PT.length<520)PT.push({k:2,x,z,vx:Math.cos(a)*s,vz:Math.sin(a)*s,r:.45,l:R(.5,.9),m:.9,a:1})}}
-const floater=(x,z,txt,col,big)=>{if(FL.length<14)FL.push({x,z,txt,col,t:0,big})};
+const floater=(x,z,txt,col,big)=>{if(typeof REMOTE!=='undefined'&&REMOTE)return;if(FL.length<14)FL.push({x,z,txt,col,t:0,big})};
 function updFx(dt){
   {const slot=Math.floor(Date.now()/90000),f=Math.sin(slot*12.9898)*43758.5453;WX.target=(f-Math.floor(f))<.3?1:0} // météo partagée
   WX.lvl+=(WX.target-WX.lvl)*Math.min(1,dt*.35);
@@ -986,10 +986,11 @@ function drawBike(x,z,th,col,ped){
 function drawOthers(now){
   for(const o of MP.others.values()){
     if(o.hid)continue;
-    if(o.k==='foot')drawHuman(o.x,o.z,o.th,o.look,o.ph,o.sp,HS);
+    const oin=inLab(o.x,o.z),sc=oin?2.1:HS;
+    if(o.k==='foot')drawHuman(o.x,o.z,o.th,o.look,o.ph,o.sp,sc);
     else if(o.k==='bike')drawBike(o.x,o.z,o.th,o.c,o.ph*3);
     else drawVeh({x:o.x,z:o.z,th:o.th,spr:{k:o.k,c:o.c},brk:false},now);
-    if(inView(o.x,o.z,6)){const pu=.5+.5*Math.sin(now/300+o.x);ring(o.x,o.z,3+pu*.6,'#7fd1ff',.25,.5)}
+    if(inView(o.x,o.z,6)){const pu=.5+.5*Math.sin(now/300+o.x);ring(o.x,o.z,(3+pu*.6)*sc/HS,'#7fd1ff',.25*sc/HS,.5)}
   }
 }
 function drawPlayer(now){
@@ -2269,7 +2270,7 @@ function gameOver(kind,by){
   }[kind];
   $('endT').textContent=T[0];$('endT').style.color=kind==='win'?'var(--ok)':'var(--heat)';$('endP').textContent=T[1];
   $('end').hidden=false;
-  try{localStorage.removeItem(KEY)}catch(e){}
+  try{localStorage.removeItem(G.mode==='multi'?'serre-mp-v1':KEY)}catch(e){}
 }
 $('endOk').onclick=()=>resetGame();
 
@@ -3106,7 +3107,7 @@ function tabLabo(){
   const store=MACH.filter(m=>(G.lab.store[m.id]||0)>0);
   if(store.length)s+=`<p class="note" style="color:var(--ok)">À installer : ${store.map(m=>G.lab.store[m.id]+' × '+m.name).join(', ')}.</p>`;
   s+='<div><h2>Tes variétés</h2><div class="list">'+STRAINS.filter(v=>G.unlocked[v.id]||G.seeds[v.id]||G.raw[v.id]||G.stock[v.id]).map(v=>`<div class="item"><b>${v.name}${G.sel===v.id?' <span class="tag ok">plantée par défaut</span>':''}</b><span>Graines ${G.seeds[v.id]||0} · Récolte ${G.raw[v.id]||0} · Produit ${G.stock[v.id]||0} · vente ~${fmt(v.price)}/u.</span>${G.sel===v.id?'':`<button class="btn ghost" data-act="sel:${v.id}">Planter par défaut</button>`}</div>`).join('')+'</div></div>';
-  s+=confirmReset?`<div class="chips"><span class="note">Tout effacer ?</span><button class="btn red" data-act="resetyes">Oui, recommencer</button><button class="btn ghost" data-act="resetno">Non</button></div>`:`<div><button class="btn ghost" data-act="reset">Nouvelle partie</button></div>`;
+  s+=confirmReset?`<div class="chips"><span class="note">Tout effacer ?</span><button class="btn red" data-act="resetyes">Oui, recommencer</button><button class="btn ghost" data-act="resetno">Non</button></div>`:`<div class="chips"><button class="btn ghost" data-act="lobby">Changer de mode</button><button class="btn ghost" data-act="reset">${G.mode==='multi'?'Repartir de zéro (ton argent)':'Nouvelle partie'}</button></div>`;
   return s;
 }
 /* à l'ordinateur : commande livrée (frais) ; à la jardinerie : matériel ; à la graineterie : graines (sur place, sans frais) */
@@ -3228,6 +3229,7 @@ $('menu').addEventListener('click',e=>{
       break}
     case 'nick':{const n=cleanTxt(($('nickIn')||{}).value,18);if(n){MP.nick=n;MP.last='';try{localStorage.setItem('serre-nick',n)}catch(e){}toast('Pseudo : '+n,'good')}break}
     case 'cheat':{const c2=(($('cheatIn')||{}).value||'').replace(/\D/g,'');if(c2===CHEAT)applyCheat();else toast('Code incorrect.','bad');break}
+    case 'lobby':save();location.reload();return;
     case 'reset':confirmReset=true;break;
     case 'resetno':confirmReset=false;break;
     case 'resetyes':resetGame();return;
@@ -3263,6 +3265,7 @@ function beginGame(fresh){
   if(0){setTimeout(()=>toast('Ton labo a déjà deux pots, un séchoir installé et 5 graines. Plante, puis arrose : l’arrosoir se remplit au robinet, à droite de l’entrée.'),600);setTimeout(()=>toast('Le reste s’achète à la jardinerie (matériel) et à la graineterie (graines), ou se commande à l’ordinateur du labo, livré en camionnette.'),7000)}
 }
 function resetGame(){
+  try{localStorage.removeItem(G&&G.mode==='multi'?'serre-mp-v1':KEY)}catch(e){}location.reload();return;
   endFast();cops=[];couriers=[];
   gangs=[];orders.slice().forEach(removeOrder);
   meetCar=null;HIDE=null;DV=null;parkCar(null);CINE=null;$('cine').hidden=true;
@@ -3314,7 +3317,8 @@ function newPartyCode(){let c='';const a=new Uint32Array(5);try{crypto.getRandom
 function mpSync(peers){
   const seen=new Set();
   for(const p of peers){
-    if(p.sameTab||p.kind!=='viewer')continue;
+    if(p.sameTab){MP.me=String(p.peer);continue}
+    if(p.kind!=='viewer')continue;
     const pr=p.presence||{};
     if(typeof pr.x!=='number'||typeof pr.z!=='number')continue;
     seen.add(p.peer);
@@ -3322,7 +3326,7 @@ function mpSync(peers){
     const x=pnum(pr.x,-610,610,0),z=pnum(pr.z,-610,610,0),th=pnum(pr.th,-1e3,1e3,0);
     if(!o){o={x,z,th,ph:0,sp:0,bub:null,lk:''};MP.others.set(p.peer,o);
       if(started)toast(cleanTxt(pr.n,18)+' a rejoint la partie.','chat')}
-    o.tx=x;o.tz=z;o.tth=th;o.n=cleanTxt(pr.n,18)||'Joueur';
+    o.tx=x;o.tz=z;o.tth=th;o.cm=typeof pr.cm==='string'?pr.cm.slice(0,8):'';o.id=String(p.peer);o.n=cleanTxt(pr.n,18)||'Joueur';
     o.k=MPK.has(pr.k)?pr.k:'foot';o.c=pcol(pr.c,0xd04a2a);o.cash=pnum(pr.cash,0,1e12,0);
     o.hd=typeof pr.hd==='string'&&DIS[pr.hd]?pr.hd:'';o.hid=pr.hid===1;
     const lk=[pcol(pr.sh,0x5a6b4a),pcol(pr.pa,0x3d5a88),pcol(pr.cp,0)].join(',');
@@ -3350,7 +3354,7 @@ function mpUpdate(dt){
   if(MP.g&&MP.sendT<=0){
     MP.sendT=.1;
     const st=started&&!ended?{n:MP.nick,x:Math.round(P.x*10)/10,z:Math.round(P.z*10)/10,th:Math.round(P.th*100)/100,k:P.def.kind,c:P.def.color,
-      sh:PLAYER_LOOK.shirt,pa:PLAYER_LOOK.pants,cp:PLAYER_LOOK.cap||0,cash:Math.floor(G.cash+(G.bank||0)),hd:G.home,hid:HIDE||INT?1:0}:{n:MP.nick,x:null,z:null};
+      sh:PLAYER_LOOK.shirt,pa:PLAYER_LOOK.pants,cp:PLAYER_LOOK.cap||0,cash:Math.floor(G.cash+(G.bank||0)),hd:G.home,hid:HIDE||INT?1:0,cm:G.mode==='multi'&&CREW.code?CREW.code:''}:{n:MP.nick,x:null,z:null};
     const s=JSON.stringify(st);
     if(s!==MP.last){MP.last=s;MP.g.presence(st).catch(()=>{})}
   }
@@ -4036,6 +4040,7 @@ const QORDER=CHAPTERS.flatMap(c=>c.q);
 const CHAP_OF=Object.fromEntries(CHAPTERS.flatMap(c=>c.q.map(q=>[q,c.n])));
 const qIdx=q=>QORDER.indexOf(q);
 function STO(){
+  if(G.mode==='multi'){if(!G.story||G.story.q!=='libre'||G.story.v!==2)G.story={v:2,q:'libre',cut:0,dead:1,paid:0,f:{deal:1,blanchMet:1,firstBizDirty:1,taupeMet:1},clue:{}};return G.story}
   if(!G.story)G.story={q:'intro',cut:0,dead:0,paid:0,f:{},clue:{}};
   const s=G.story;if(!s.f)s.f={};if(!s.clue)s.clue={};
   if(s.v!==2){ // sauvegardes d'avant les chapitres : on reprend au chapitre 2 (Refe vivant, 30 %)
@@ -4202,6 +4207,7 @@ function questCheck(dt){
 let qOpen=!MOBILE,qLast='';
 function renderQuest(force){
   const el=$('quest');if(!el)return;
+  if(G.mode==='multi'){vis(el,started&&!CINE);if(started&&!CINE)crewCard(el);return}
   const s=STO(),q=Q[s.q],show=!!q&&started&&!CINE&&s.q!=='intro';
   vis(el,show);if(!show)return;
   const ch=CHAP_OF[s.q],C=CHAPTERS.find(c=>c.n===ch),idx=C.q.filter(x=>!x.startsWith('c_')||x===s.q).indexOf(s.q)+1,tot=C.q.filter(x=>!x.startsWith('c_')).length+(C.n===1?1:0);
@@ -4385,7 +4391,7 @@ function updTips(dt){
     else if(r<.65&&!RAID){RAID={t:120,warned:1};phoneMsg('📱 Le flic infiltré','#7fd1ff','Descente prévue sur ton labo dans 2 minutes. Vide la réserve : remplis ton sac et va vendre ailleurs.')}
     else{REVEAL=90;phoneMsg('📱 Le flic infiltré','#7fd1ff','Je t’envoie les positions de toutes les patrouilles. Regarde ta carte : tu as une minute et demie.')}}}
   // descentes sur le labo (à partir du chapitre 3), annoncées seulement si tu as acheté le flic
-  if(storyAt('blanch_find')&&!RAID){raidT-=dt;if(raidT<=0){raidT=R(500,800);if(Math.random()<.5)RAID={t:s.f.taupePaid?120:2,warned:s.f.taupePaid};if(RAID&&RAID.warned)phoneMsg('📱 Le flic infiltré','#7fd1ff','Descente prévue sur ton labo dans 2 minutes. Vide la réserve !')}}
+  if(G.mode!=='multi'&&storyAt('blanch_find')&&!RAID){raidT-=dt;if(raidT<=0){raidT=R(500,800);if(Math.random()<.5)RAID={t:s.f.taupePaid?120:2,warned:s.f.taupePaid};if(RAID&&RAID.warned)phoneMsg('📱 Le flic infiltré','#7fd1ff','Descente prévue sur ton labo dans 2 minutes. Vide la réserve !')}}
   if(RAID){RAID.t-=dt;if(RAID.t<=0){
     const n=tot()+rawTot();
     if(n>0){let lost=0;for(const v of STRAINS){const a=Math.floor((G.stock[v.id]||0)*.6),b=Math.floor((G.raw[v.id]||0)*.6);G.stock[v.id]-=a;G.raw[v.id]=(G.raw[v.id]||0)-b;lost+=a+b}
@@ -4700,6 +4706,250 @@ function updStory(dt){
 }
 $('quest').onclick=questClick;
 
+/* ---------- lobby (mode histoire / mode multijoueur) et serre partagée ---------- */
+/* Mode multijoueur : pas d'histoire. Tous les joueurs d'une même serre (code à 5 caractères) partagent le labo :
+   machines, plantes, graines, récolte, réserve, améliorations du labo et équipe. Chacun garde son argent, son sac, ses véhicules.
+   Un joueur fait autorité (« chef de serre ») : il fait pousser les plantes et diffuse l'état ; les autres lui envoient leurs actions.
+   Si le chef part, le joueur suivant reprend. L'état est sauvegardé sur le serveur (crews/CODE) toutes les 30 s. */
+var CREW={code:'',host:'',lastSnap:0,joinedAt:0,synced:false,seq:0,lastOpT:0,ack:{},g:null,snapT:0,saveT:20,payT:6,inc:0,loading:false,electT:0,hostName:''};
+const MKEY='serre-mp-v1';
+const SH_LV=['labo','lamp','engrais','hydro','vent','entrepot','livreur','jardinier','dealer','guetteur'];
+const isMulti=()=>!!G&&G.mode==='multi';
+const crewOn=()=>isMulti()&&!!CREW.code&&!!MP.g&&MP.code===CREW.code;
+const crewHost=()=>crewOn()&&CREW.host===MP.me&&!!MP.me;
+const crewClient=()=>crewOn()&&!crewHost();
+let REMOTE=0,DELTA=null;
+function readSave(k){try{const g=JSON.parse(localStorage.getItem(k));return g&&(g.v===4||g.v===5)&&typeof g.cash==='number'?g:null}catch(e){return null}}
+
+/* ---------- lobby ---------- */
+const STORY_SAVED=!!(G&&G.began&&G.mode!=='multi');
+function lobbyInit(){
+  $('storyCont').hidden=!STORY_SAVED;
+  $('storyInfo').textContent=STORY_SAVED?`Histoire en cours : ${fmt(G.cash+(G.clean||0)+(G.bank||0))}, ${(G.story&&CHAP_OF[G.story.q])?(CHAP_OF[G.story.q]<6?'chapitre '+CHAP_OF[G.story.q]:'épilogue'):'chapitre 1'}.`:'';
+  const m=readSave(MKEY);
+  const cc=$('crewCont');cc.hidden=!(m&&m.crew);if(m&&m.crew)cc.textContent='Reprendre la serre '+m.crew;
+  $('crewNick').value=MP.nick;
+}
+function startStory(fresh){
+  if(fresh){G=newG('cite');G.began=1}
+  G.mode='story';save();
+  const m=readSave(MKEY);if(MP.g&&m&&m.crew&&MP.code===m.crew)mpJoin('PUBLIC',true);
+  beginGame(fresh);
+}
+$('goBtn').onclick=()=>{if(STORY_SAVED){$('storyWarn').hidden=false;return}startStory(true)};
+$('storyNewYes').onclick=()=>startStory(true);
+$('storyCont').onclick=()=>startStory(false);
+function crewMsg(t){$('crewMsg').textContent=t}
+function startCrew(code,create){
+  const nk=cleanTxt($('crewNick').value,18);if(nk){MP.nick=nk;MP.last='';try{localStorage.setItem('serre-nick',nk)}catch(e){}}
+  if(!MP.room){crewMsg(MP.state==='loading'?'Connexion au serveur en cours… réessaie dans quelques secondes.':'Multijoueur indisponible : ouvre le jeu par l’adresse du serveur.');return}
+  if(create)code=newPartyCode();
+  code=partyCode(code);if(!code||code==='PUBLIC'){crewMsg('Le code fait 5 caractères, par exemple K7QPM.');return}
+  const m=readSave(MKEY);
+  if(m){G=m;migrate(G)}else G=newG('cite');
+  G.mode='multi';G.began=1;if(G.crew!==code){G.lab=newG('cite').lab;G.seeds={jardin:5};G.raw={};G.stock={};for(const k of SH_LV)delete G.lv[k];G.deliv=[]}
+  G.crew=code;save();
+  Object.assign(CREW,{code,host:'',lastSnap:0,joinedAt:performance.now(),synced:false,seq:0,ack:{},g:null,created:!!create});
+  beginGame(false);crewConnect(code,create);
+}
+$('crewNew').onclick=()=>startCrew(null,true);
+$('crewJoin').onclick=()=>startCrew($('crewIn').value,false);
+$('crewCont').onclick=()=>{const m=readSave(MKEY);if(m&&m.crew)startCrew(m.crew,false)};
+$('crewIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('crewJoin').click()});
+async function crewConnect(code,create){
+  for(let i=0;i<8;i++){
+    while(MP.busy)await new Promise(ok=>setTimeout(ok,200));
+    if(MP.g&&MP.code===code)break;
+    const r=await mpJoin(code,true);
+    if(MP.g&&MP.code===code)break;
+    toast('Connexion à la serre… '+r,'bad');await new Promise(ok=>setTimeout(ok,3000));
+  }
+  if(!(MP.g&&MP.code===code)){toast('Impossible de rejoindre la serre '+code+'. Recharge la page.','bad');return}
+  crewAttach();CREW.joinedAt=performance.now();
+  toast(create?`Serre ${code} créée. Donne ce code à tes amis : ils entrent dans le même labo que toi.`:`Tu as rejoint la serre ${code}. Synchronisation du labo…`,'good');
+}
+function crewAttach(){
+  const g=MP.g;if(!g||CREW.g===g)return;CREW.g=g;
+  g.on('crew',m=>{if(MP.g===g)onCrewMsg(m)},()=>{});
+}
+
+/* ---------- état partagé ---------- */
+const r2=v=>Math.round(v*100)/100;
+const keyOf=it=>it?`${it.id}|${(+it.d).toFixed(2)}|${(+it.s).toFixed(2)}`:null;
+function findItem(k){if(!k)return null;const [id,d,s]=k.split('|');return G.lab.items.find(it=>it.id===id&&Math.abs(it.d-d)<.03&&Math.abs(it.s-s)<.03)||null}
+const nz=o=>{const r={};for(const k in o)if(o[k]>0)r[k]=o[k];return r};
+function sharedOut(){
+  return {it:G.lab.items.map(it=>[it.id,r2(it.d),r2(it.s),it.pl?[it.pl.s,Math.round(it.pl.p*1000)/1000,Math.round(it.pl.w),Math.round(it.pl.hp),it.pl.pr|0]:0,it.b?[it.b.s,it.b.n,Math.round(it.b.t*10)/10]:0]),
+    st:nz(G.lab.store),se:nz(G.seeds),ra:nz(G.raw),sk:nz(G.stock),lv:Object.fromEntries(SH_LV.filter(k=>lv(k)).map(k=>[k,lv(k)])),un:STRAINS.filter(s=>G.unlocked[s.id]).map(s=>s.id)};
+}
+const cnt=(o,ok)=>{const r={};if(o&&typeof o==='object')for(const k in o)if(ok(k)){const v=Math.floor(pnum(o[k],0,1e6,0));if(v>0)r[k]=v}return r};
+const lvMax=k=>{const u=UPS.find(x=>x.id===k)||TEAM.find(x=>x.id===k);return u?u.max:0};
+function applyShared(S){
+  if(!S||!Array.isArray(S.it))return;
+  const pool=G.lab.items.slice(),out=[],skip=PLACE&&PLACE.k0;
+  for(const e of S.it.slice(0,60)){
+    if(!Array.isArray(e))continue;const [id,d,s,pl,b]=e;if(!MM[id]||!isFinite(d)||!isFinite(s))continue;
+    const k=`${id}|${(+d).toFixed(2)}|${(+s).toFixed(2)}`;if(skip&&k===skip)continue;
+    let it=pool.find(o=>o.id===id&&Math.abs(o.d-d)<.03&&Math.abs(o.s-s)<.03);
+    if(it)pool.splice(pool.indexOf(it),1);else it={id,d:+d,s:+s,pl:null};
+    it.d=clamp(+d,2,LAB_D);it.s=clamp(+s,-LAB_W/2,LAB_W/2);
+    it.pl=Array.isArray(pl)&&SM[pl[0]]?{s:pl[0],p:pnum(pl[1],0,1,0),w:pnum(pl[2],0,100,100),hp:pnum(pl[3],0,100,100),pr:clamp(pl[4]|0,0,2)}:null;
+    it.b=Array.isArray(b)&&SM[b[0]]?{s:b[0],n:clamp(b[1]|0,0,999),t:pnum(b[2],0,1e4,0)}:null;
+    out.push(it);
+  }
+  G.lab.items=out;
+  G.lab.store=cnt(S.st,k=>!!MM[k]);G.seeds=cnt(S.se,k=>!!SM[k]);G.raw=cnt(S.ra,k=>!!SM[k]);G.stock=cnt(S.sk,k=>!!SM[k]);
+  for(const k of SH_LV)G.lv[k]=clamp(Math.floor(pnum(S.lv&&S.lv[k],0,99,0)),0,lvMax(k));
+  if(Array.isArray(S.un))for(const id of S.un)if(SM[id])G.unlocked[id]=1;
+  labSync();labZoneSync();syncCouriers();
+}
+function sendCrew(d){if(MP.g)MP.g.emit('crew',d).catch(()=>{})}
+function sendOp(o){CREW.seq++;CREW.lastOpT=performance.now();sendCrew({k:'op',n:CREW.seq,o})}
+function broadcastSnap(){CREW.snapT=.8;sendCrew({k:'snap',h:MP.me,a:CREW.ack,s:sharedOut()})}
+
+/* ---------- messages ---------- */
+function onCrewMsg(m){
+  const d=m.data||{};if(!isMulti()||m.sameTab)return;
+  const from=String(m.peer||'');
+  if(d.k==='snap'){
+    if(crewHost()){if(from<MP.me){CREW.host=from;toast('Un autre joueur reprend la gestion de la serre.')}else return}
+    if(CREW.host&&CREW.host!==from&&performance.now()-CREW.lastSnap<4000&&from>CREW.host)return;
+    CREW.host=from;CREW.lastSnap=performance.now();
+    const myAck=d.a&&typeof d.a==='object'?(+d.a[MP.me]||0):0;
+    if(myAck<CREW.seq&&performance.now()-CREW.lastOpT<2500)return;
+    applyShared(d.s);if(!CREW.synced){CREW.synced=true;toast('Labo synchronisé avec la serre '+CREW.code+'.','good')}
+    return}
+  if(d.k==='op'&&crewHost()){applyOp(from,d.o||{});CREW.ack[from]=Math.max(CREW.ack[from]||0,+d.n||0);CREW.snapT=Math.min(CREW.snapT,.05);return}
+  if(d.k==='give'&&d.to===MP.me){
+    let got=0,back={};for(const s of STRAINS){const n=Math.floor(pnum(d.p&&d.p[s.id],0,1e5,0));if(!n)continue;const k=bagAddProd(s.id,n);got+=k;if(n>k)back[s.id]=n-k}
+    if(Object.keys(back).length)sendOp({t:'drop',p:back});
+    if(got){floater(P.x,P.z,'+'+got+' dans le sac','#ffa63d',true);toast(`Tu prends ${got} unités dans la réserve commune (${bagUsed()}/${bagPlaces()} places).`,'good');STO().f.take=1}
+    else toast('La réserve commune est vide, ou ton sac est plein.','bad');
+    save();return}
+  if(d.k==='pay'&&Array.isArray(d.to)&&d.to.includes(MP.me)){const a=Math.floor(pnum(d.amt,0,1e7,0));if(a>0){G.cash+=a;G.earned+=a;if(a>=20)toast(`Équipe de la serre : +${fmt(a)} (ta part des ventes des dealers et livreurs).`,'good')}}
+}
+/* le chef applique les actions des autres joueurs */
+function applyOp(from,o){
+  const it=findItem(o.k);REMOTE=1;
+  try{
+    switch(o.t){
+      case 'pl':if(it&&SM[o.s])lPlant(it,o.s,true);break;
+      case 'wa':if(it){const c=G.can;G.can=CAN_MAX;lWater(it);G.can=c}break;
+      case 'pr':if(it)lPrune(it);break;
+      case 'hv':if(it)lHarvest(it,true);break;
+      case 'cl':if(it)lClear(it);break;
+      case 'ld':if(it)lLoad(it,true);break;
+      case 'rm':if(it&&!it.b){G.lab.items=G.lab.items.filter(x=>x!==it);G.lab.store[it.id]=(G.lab.store[it.id]||0)+1;labSync()}break;
+      case 'mv':{if(!MM[o.id]||!isFinite(o.d)||!isFinite(o.s))break;
+        if(o.k){if(it&&placeOk(it.id,+o.d,+o.s,it)){it.d=+o.d;it.s=+o.s;labSync()}}
+        else if((G.lab.store[o.id]||0)>0&&placeOk(o.id,+o.d,+o.s)){G.lab.store[o.id]--;G.lab.items.push({id:o.id,d:+o.d,s:+o.s,pl:null});labSync()}
+        break}
+      case 'dl':{
+        for(const [f,obj,ok] of [['se',G.seeds,k=>!!SM[k]],['st',G.lab.store,k=>!!MM[k]]]){const src=o[f];if(!src||typeof src!=='object')continue;
+          for(const k in src)if(ok(k)){const v=Math.round(pnum(src[k],-1e5,1e5,0));obj[k]=Math.max(0,(obj[k]||0)+v)}}
+        if(o.lv&&typeof o.lv==='object')for(const k of SH_LV){const v=Math.round(pnum(o.lv[k],-20,20,0));if(v)G.lv[k]=clamp(lv(k)+v,0,lvMax(k))}
+        if(Array.isArray(o.un))for(const id of o.un)if(SM[id])G.unlocked[id]=1;
+        labZoneSync();syncCouriers();break}
+      case 'take':{const give={};for(const s of STRAINS){const want=Math.floor(pnum(o.p&&o.p[s.id],0,1e5,0)),n=Math.min(want,G.stock[s.id]||0);if(n>0){G.stock[s.id]-=n;give[s.id]=n}}
+        sendCrew({k:'give',to:from,p:give});break}
+      case 'drop':for(const s of STRAINS){const n=Math.floor(pnum(o.p&&o.p[s.id],0,1e5,0));if(n>0)G.stock[s.id]=(G.stock[s.id]||0)+n}break;
+      case 'eg':G.lab.items.forEach(x=>{const p=x.pl;if(p&&p.hp>0&&p.p<1)p.p=Math.min(1,p.p+.3)});break;
+    }
+  }finally{REMOTE=0}
+}
+
+/* ---------- actions des joueurs (non-chefs) : appliquées tout de suite chez soi, puis envoyées au chef ---------- */
+function dBase(f,k,n){if(DELTA&&DELTA[f])DELTA[f][k]=(DELTA[f][k]||0)+n}
+{const o=lPlant;lPlant=function(it,s,q){const r=o(it,s,q);if(r&&!REMOTE&&crewClient()){dBase('se',s,-1);sendOp({t:'pl',k:keyOf(it),s})}return r}}
+{const o=lWater;lWater=function(it){const c=G.can;o(it);if(!REMOTE&&G.can<c&&crewClient())sendOp({t:'wa',k:keyOf(it)})}}
+{const o=lPrune;lPrune=function(it){const was=it&&it.pl&&it.pl.pr;o(it);if(!REMOTE&&crewClient()&&was===1&&it.pl&&it.pl.pr===2)sendOp({t:'pr',k:keyOf(it)})}}
+{const o=lHarvest;lHarvest=function(it,q){const k=keyOf(it),r=o(it,q);if(r&&!REMOTE&&crewClient())sendOp({t:'hv',k});return r}}
+{const o=lClear;lClear=function(it){const k=keyOf(it);o(it);if(!REMOTE&&crewClient())sendOp({t:'cl',k})}}
+{const o=lLoad;lLoad=function(it,q){const k=keyOf(it),r=o(it,q);if(r&&!REMOTE&&crewClient())sendOp({t:'ld',k});return r}}
+{const o=lRemove;lRemove=function(it){const k=keyOf(it),had=G.lab.items.includes(it);o(it);if(had&&!G.lab.items.includes(it)&&crewClient()){dBase('st',it.id,1);sendOp({t:'rm',k})}}}
+{const o=startPlace;startPlace=function(id,item){const k0=item?keyOf(item):null,had=item?null:(G.lab.store[id]||0);o(id,item);if(PLACE){PLACE.k0=k0;if(!item&&crewClient()&&(G.lab.store[id]||0)<had)dBase('st',id,-1)}}}
+{const o=cancelPlace;cancelPlace=function(q){const p=PLACE;o(q);if(p&&!p.item&&crewClient())dBase('st',p.id,1)}}
+{const o=dropPlace;dropPlace=function(){const p=PLACE&&{k0:PLACE.k0,id:PLACE.item?PLACE.item.id:PLACE.id,d:PLACE.d,s:PLACE.s,ok:PLACE.ok};o();if(p&&p.ok&&!PLACE&&crewClient())sendOp({t:'mv',k:p.k0,id:p.id,d:r2(p.d),s:r2(p.s)})}}
+{const o=bagTake;bagTake=function(){
+  if(!crewClient())return o();
+  if(!tot()){toast('La réserve commune est vide : séchez la récolte d’abord.','bad');return}
+  sendOp({t:'take',p:nz(G.stock)});toast('Demande envoyée au chef de serre…')}}
+{const o=bagDrop;bagDrop=function(){
+  if(!crewClient())return o();
+  const p=nz(G.bag.p);if(!Object.keys(p).length){toast('Rien à déposer.','bad');return}
+  for(const s in p)G.stock[s]=(G.stock[s]||0)+p[s];G.bag.p={};sendOp({t:'drop',p});save();toast('Produit déposé dans la réserve commune.','good')}}
+{const o=useItem;useItem=function(id){const n=G.bag.it[id]||0;o(id);if(id==='engrais'&&crewClient()&&(G.bag.it[id]||0)<n)sendOp({t:'eg'})}}
+/* achats qui ajoutent au labo commun (graines, machines, améliorations, recrues, variétés) : on envoie la différence */
+function capShared(){return {se:{...G.seeds},st:{...G.lab.store},lv:Object.fromEntries(SH_LV.map(k=>[k,lv(k)])),un:{...G.unlocked}}}
+function deltaBegin(){if(crewClient()&&!DELTA)DELTA=capShared()}
+function deltaEnd(){
+  if(!DELTA)return;const b=DELTA;DELTA=null;if(!crewClient())return;
+  const a=capShared(),o={t:'dl'};let any=false;
+  for(const f of ['se','st','lv']){const r={};for(const k of new Set([...Object.keys(a[f]),...Object.keys(b[f])])){const v=(a[f][k]||0)-(b[f][k]||0);if(v){r[k]=v;any=true}}if(Object.keys(r).length)o[f]=r}
+  const un=Object.keys(a.un).filter(k=>a.un[k]&&!b.un[k]);if(un.length){o.un=un;any=true}
+  if(any)sendOp(o);
+}
+for(const id of ['menu','tChoices','shop']){const el=$(id);if(!el)continue;el.addEventListener('click',deltaBegin,true);el.addEventListener('click',()=>setTimeout(deltaEnd,0))}
+{const o=deliverAll;deliverAll=function(){deltaBegin();o();deltaEnd()}}
+{const o=intAct;intAct=function(t){deltaBegin();o(t);deltaEnd()}}
+/* seul le chef fait pousser et fait travailler l'équipe ; ce que rapportent dealers et livreurs est partagé */
+{const o=labTick;labTick=function(dt){if(crewClient())return;o(dt)}}
+{const o=syncCouriers;syncCouriers=function(){if(crewClient()){couriers.length=0;return}o()}}
+{const o=economy;economy=function(dt){
+  if(crewClient()){const d=G.lv.dealer;G.lv.dealer=0;o(dt);G.lv.dealer=d;return}
+  const b=G.cash;o(dt);if(crewHost()&&G.cash>b)CREW.inc+=G.cash-b}}
+{const o=sale;sale=function(q,cut,who){const b=G.cash,r=o(q,cut,who);if(r&&who==='livreur'&&crewHost())CREW.inc+=G.cash-b;return r}}
+{const o=toast;toast=function(...a){if(REMOTE)return;o(...a)}}
+
+/* ---------- chef de serre : élection, diffusion, sauvegarde ---------- */
+const crewMembers=()=>[MP.me,...[...MP.others.values()].filter(o=>o.cm===CREW.code).map(o=>o.id)].filter(Boolean).map(String).sort();
+async function becomeHost(){
+  CREW.host=MP.me;
+  if(!CREW.synced&&!CREW.loading){
+    CREW.loading=true;
+    try{const db=await getDb();if(db){const sn=await db.doc('crews/'+CREW.code).get();if(sn.exists){const S=JSON.parse(sn.data().s);applyShared(S)}}}catch(e){}
+    CREW.loading=false;CREW.synced=true;
+  }
+  if(crewHost()){broadcastSnap();toast('Tu gères la serre '+CREW.code+' : les plantes poussent chez toi et l’état est partagé avec l’équipe.','good')}
+}
+async function crewSaveDoc(){
+  try{const db=await getDb();if(db)await db.doc('crews/'+CREW.code).set({t:Date.now(),s:JSON.stringify(sharedOut())})}catch(e){}
+}
+function updCrew(dt){
+  if(!isMulti()||!started||!CREW.code)return;
+  if(MP.g&&MP.code===CREW.code)crewAttach();
+  if(!crewOn())return;
+  CREW.electT-=dt;
+  if(CREW.electT<=0){CREW.electT=1;
+    const mem=crewMembers(),now=performance.now();
+    const alive=CREW.host&&(CREW.host===MP.me||(mem.includes(CREW.host)&&now-CREW.lastSnap<4500));
+    if(!alive&&now-CREW.joinedAt>2600&&!CREW.loading){const h=mem[0];if(h===MP.me)becomeHost();else{CREW.host=h;CREW.lastSnap=now}}
+    const hn=CREW.host===MP.me?'toi':((MP.others.get(CREW.host)||{}).n||'…');CREW.hostName=hn;
+  }
+  if(crewHost()){
+    CREW.snapT-=dt;if(CREW.snapT<=0)broadcastSnap();
+    CREW.saveT-=dt;if(CREW.saveT<=0){CREW.saveT=30;crewSaveDoc()}
+    CREW.payT-=dt;if(CREW.payT<=0){CREW.payT=6;
+      const to=[...MP.others.values()].filter(o=>o.cm===CREW.code).map(o=>o.id),n=to.length+1;
+      if(to.length&&CREW.inc>=n){const share=Math.floor(CREW.inc/n);G.cash-=share*to.length;G.earned-=share*to.length;sendCrew({k:'pay',to,amt:share})}
+      CREW.inc=0}
+  }
+}
+{const o=updStory;updStory=function(dt){o(dt);updCrew(dt)}}
+/* carte « Serre partagée » à la place de l'objectif */
+function crewCard(el){
+  el.classList.add('crew');
+  const mem=[...MP.others.values()].filter(o=>o.cm===CREW.code).map(o=>o.n);
+  const n=mem.length+1,h=`${CREW.code}|${n}|${CREW.hostName}|${CREW.synced}|${qOpen}|${crewOn()}`;
+  if(el.dataset.h===h)return;el.dataset.h=h;
+  $('qC').textContent='Mode multijoueur · serre partagée';
+  $('qT').textContent=CREW.code?`Serre ${CREW.code} · ${n} joueur${n>1?'s':''}`:'Serre partagée';
+  vis($('qP'),true);$('qP').textContent=!crewOn()?'Connexion…':!CREW.synced&&!crewHost()?'Synchronisation du labo…':crewHost()?'Tu gères la serre (les plantes poussent chez toi)':'Chef de serre : '+CREW.hostName;
+  $('qD').textContent=`Avec toi : ${mem.length?mem.join(', '):'personne pour l’instant. Donne le code '+CREW.code+' à tes amis.'}`;vis($('qD'),qOpen);
+  vis($('qS'),qOpen);$('qS').textContent='Labo, graines, récolte, réserve et équipe sont communs. Ton argent, ton sac et tes véhicules restent à toi.';
+}
+if(/[?&]debug=1\b/.test(location.search))window.__crew={get CREW(){return CREW},sharedOut,applyShared,startCrew,startStory,crewHost,crewClient,crewMembers};
+
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */
 const CROSS=[];
@@ -4804,5 +5054,5 @@ if(DEBUG)window.__serre={get G(){return G},P,LAB:()=>LAB,act,actOpt,labDo,labTar
   get tgt(){findTarget();return tgt},teleport:(x,z,th)=>{P.x=x;P.z=z;if(th!=null)P.th=th;P.vx=P.vz=0;CAM.x=x;CAM.z=z},MP,chooseVehicle,copsN:()=>cops.length,hide:()=>!!HIDE,mission:()=>M&&{units:M.units,value:M.value},
   step:sec=>{for(let t=0;t<sec;t+=.05){mpUpdate(.05);simStep(.05,.05);updStory(.05);updFx(.05);if(CINE)updCine(.05);else updCamera(.05)}hud(0)},
   story:{get S(){return G.story},get SPOT(){return SPOT},get CINE(){return CINE},get INT(){return INT},endCine,cineNext,talkRefe,readPhone,PHONE,Q,get cops(){return cops},startMeeting,askChoice,npc:npcById,get FIGHTERS(){return FIGHTERS},get FCOPS(){return FCOPS},talkPed,enterShop,exitShop,intAct,intTarget,get SNPC(){return SNPC},BIZS:()=>BIZS,bizAct,nextQuest,get ZONE(){return ZONE},CROSS}};
-if(G.began){beginGame(false)}else{$('start').hidden=false}
+$('start').hidden=false;lobbyInit();
 requestAnimationFrame(frame);

@@ -244,6 +244,24 @@ h2{font-size:18px}
 #cineTitle b{font-family:var(--display);font-size:clamp(34px,8vw,68px);color:#f3e6d6;text-shadow:0 3px 0 #000}
 @keyframes tin{from{opacity:0;letter-spacing:.2em}}
 @media (max-width:520px){#quest{max-width:calc(100vw - 190px)}#quest b{font-size:12.5px}#quest span,#quest em{font-size:11.5px}#cineTxt{font-size:15px}}
+
+/* lobby : choix du mode */
+.lobby h1{margin-bottom:2px}
+.lobby .lsub{margin-bottom:10px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.mode{position:relative;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.mode.story{border-top:4px solid #e0b020}
+.mode.multi{border-top:4px solid #7fd1ff}
+.mode h2{font-family:var(--display);font-size:20px;margin:0}
+.mode p{margin:0;font-size:13.5px;line-height:1.5}
+.mode .mtag{position:absolute;top:12px;right:12px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mode .field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.mode .warnNew{color:var(--heat)}
+.mode .warnNew .btn{margin-left:6px}
+.rules{margin-top:4px}
+.rules summary{cursor:pointer;font-weight:600;padding:6px 0}
+#quest.crew{border-color:#7fd1ff;border-left-color:#7fd1ff}
+#quest.crew small{color:#7fd1ff}
 </style>
 <script src="claude-shim.js"></script>
 </head>
@@ -330,27 +348,39 @@ h2{font-size:18px}
   </div>
 
   <div id="start" hidden>
-    <div class="sheet pad">
+    <div class="sheet pad lobby">
       <h1>La Serre Clandestine</h1>
-      <p class="note">Dix-neuf ans, viré de chez toi, 150 € en poche. Dans le quartier des Lilas, un seul homme peut t’aider : El Refe. Il t’apprendra tout… contre 30 % de tes gains, à vie. Le quartier est découpé en quatre secteurs : les trois autres gérants te proposeront des alliances, des affaires et des services. Respecte-les : un gérant vexé envoie ses hommes.</p>
+      <p class="note lsub">Le quartier des Lilas, ses deux gangs, ses flics et ses serres. Choisis comment tu veux jouer.</p>
+      <div class="modes">
+        <section class="mode story" aria-labelledby="mStoryT">
+          <span class="mtag">Solo</span>
+          <h2 id="mStoryT">Mode histoire</h2>
+          <p>Dix-neuf ans, viré de chez toi, 150 € en poche. El Refe t’apprend tout… contre 30 % de tes gains, à vie. Cinq chapitres : la rue, les flics, l’argent sale, la taupe, la trahison.</p>
+          <p class="note" id="storyInfo"></p>
+          <div class="chips" id="storyBtns"><button class="btn" id="goBtn">Nouvelle histoire</button><button class="btn" id="storyCont" hidden>Continuer l’histoire</button></div>
+          <p class="note warnNew" id="storyWarn" hidden>Une histoire est déjà en cours. « Nouvelle histoire » l’efface. <button class="btn red" id="storyNewYes">Oui, recommencer</button></p>
+        </section>
+        <section class="mode multi" aria-labelledby="mMultiT">
+          <span class="mtag">À plusieurs</span>
+          <h2 id="mMultiT">Mode multijoueur</h2>
+          <p>Pas d’histoire : une serre partagée. Tout le monde entre dans le même labo, plante, arrose, récolte et sèche ensemble. Chacun vend avec son propre sac et garde son argent ; ce que rapportent les dealers et livreurs de l’équipe est partagé.</p>
+          <label class="field">Ton pseudo<input id="crewNick" maxlength="18" autocomplete="off"></label>
+          <div class="chips"><button class="btn" id="crewNew">Créer une serre</button><button class="btn" id="crewCont" hidden></button></div>
+          <div class="chips" style="align-items:center"><input id="crewIn" placeholder="CODE" maxlength="5" aria-label="Code de la serre" autocomplete="off" style="width:120px;letter-spacing:.18em;text-transform:uppercase"><button class="btn ghost" id="crewJoin">Rejoindre une serre</button></div>
+          <p class="note" id="crewMsg" role="status"></p>
+        </section>
+      </div>
+      <p class="note" id="mpStartStatus">Multijoueur : connexion…</p>
+      <details class="rules"><summary>Règles et commandes</summary>
       <div class="list" id="goals">
-        <div class="item"><b>Gagner</b><span>Atteins 10 000 000 € de cash.</span></div>
+        <div class="item"><b>Gagner</b><span>Atteins 10 000 000 € (argent sale + propre + banque).</span></div>
         <div class="item"><b>Perdre : la prison</b><span>Trois arrestations. Le casier s’efface d’un cran toutes les 8 minutes sans arrestation.</span></div>
-        <div class="item"><b>L’histoire</b><span>Une cinématique, puis des objectifs (en haut à gauche, flèche jaune) te guident : El Refe t’apprend à vendre et te confie un labo, puis tu choisis par quoi commencer. Un jour, il faudra te débarrasser de lui pour effacer ta dette. Achète un téléphone : les gérants t’enverront des messages au lieu de venir te chercher.</span></div>
-        <div class="item"><b>Ton labo</b><span>Au départ : un bureau avec l’ordinateur, deux pots, un séchoir déjà installé, un robinet et 5 graines. Plante, arrose (l’arrosoir se remplit au robinet), taille, récolte, puis passe la récolte au séchoir : le produit séché va dans la réserve : remplis ton sac à dos aux étagères pour aller le vendre. C’est toi qui places les machines où tu veux, et tu peux payer pour agrandir le labo. Le reste s’achète à la jardinerie et à la graineterie, ou se commande à l’ordinateur, livré en camionnette.</span></div>
-        <div class="item"><b>Commandes</b><span>À pied : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d’action à droite (ou E), Options (ou R), 👊 frapper (ou F), puis fouiller un passant KO. 🎒 (ou B) : sac à dos. En voiture : flèches à l’écran (ou ZQSD / flèches), DRIFT = frein à main (Espace). N : carte. T : chat. H : klaxon. G : go fast.</span></div>
-        <div class="item"><b>Jour et nuit, police</b><span>Des patrouilles tournent en permanence, plus nombreuses le jour. Elles te prennent en chasse si tu chauffes, si elles te voient vendre ou frapper quelqu’un. La nuit, les clients paient jusqu’à 25 % de plus.</span></div>
-        <div class="item"><b>Multijoueur</b><span>Tous ceux qui ouvrent l’adresse du jeu se retrouvent dans la partie publique ; avec un code, partie privée. T : chat. Chacun garde son argent et son labo.</span></div>
-        <div class="item"><b>Semer la police</b><span>Quand on te poursuit, descends de voiture devant une boutique et cache-toi avant que les flics ne soient trop près : ils perdent ta trace et la chaleur retombe vite.</span></div>
-      </div>
-      <div class="chips" id="goRow"><button class="btn" id="goBtn">Commencer</button></div>
-      <div id="pickBox" hidden>
-        <h2 style="margin:4px 0 6px">Choisis ton secteur</h2>
-        <p class="note">C’est là que tu as grandi, et là que tu bâtiras ton réseau. Chaque secteur a un avantage et un défaut.</p>
-        <div class="dgrid" id="dgrid"></div>
-      </div>
-      <div><h2 style="margin:6px 0">Partie entre amis</h2><p class="note" style="margin-bottom:6px">Sans rien faire, tu es dans la partie publique avec tous ceux qui ont le jeu ouvert. Pour jouer seulement entre vous, crée une partie privée et donne le code.</p><div class="chips" style="align-items:center"><button class="btn ghost" id="partyNew">Créer une partie</button><input id="partyIn" placeholder="CODE" maxlength="5" aria-label="Code de partie" autocomplete="off" style="width:110px;letter-spacing:.18em"><button class="btn ghost" id="partyJoin">Rejoindre</button></div><p class="note" id="mpStartStatus" style="margin-top:6px">Multijoueur : connexion…</p><p class="note" id="partyMsg" role="status" style="margin-top:4px"></p></div>
-      <div class="chips" style="align-items:center"><input id="startCode" placeholder="XXXX-XXXX" maxlength="9" aria-label="Code de sauvegarde" autocomplete="off"><button class="btn ghost" id="startLoad">Charger une partie</button><span class="note" id="startMsg"></span></div>
+        <div class="item"><b>Ton labo</b><span>Plante, arrose (l’arrosoir se remplit au robinet), taille, récolte, puis passe la récolte au séchoir : le produit séché va dans la réserve. Remplis ton sac aux étagères pour aller le vendre. Les machines se placent où tu veux.</span></div>
+        <div class="item"><b>Commandes</b><span>À pied : joystick en bas à gauche (ou ZQSD / flèches, Maj pour marcher), bouton d’action à droite (ou E), Options (ou R), 👊 frapper (ou F). 🎒 (ou B) : sac à dos. En voiture : flèches à l’écran (ou ZQSD / flèches), DRIFT = frein à main (Espace). N : carte. T : chat. H : klaxon. G : go fast.</span></div>
+        <div class="item"><b>Police</b><span>Des patrouilles tournent en permanence. Elles te prennent en chasse si tu chauffes, ou si elles te voient vendre ou frapper. Pour les semer, cache-toi dans une boutique ou roule vite et loin.</span></div>
+      </div></details>
+      <div class="chips" style="align-items:center"><input id="startCode" placeholder="XXXX-XXXX" maxlength="9" aria-label="Code de sauvegarde" autocomplete="off"><button class="btn ghost" id="startLoad">Charger une histoire sauvegardée</button><span class="note" id="startMsg"></span></div>
+      <div hidden><div id="goRow"></div><div id="pickBox"><div id="dgrid"></div></div><button id="partyNew"></button><input id="partyIn"><button id="partyJoin"></button><p id="partyMsg"></p></div>
     </div>
   </div>
 
