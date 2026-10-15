@@ -72,7 +72,7 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 
 À l'ouverture, un lobby propose :
 - **Mode histoire** (solo) : les cinq chapitres avec El Refe, décrits ci-dessous.
-- **Mode multijoueur** : pas d'histoire. « Créer une serre » donne un code à 5 caractères ; tes amis le tapent dans « Rejoindre une serre ». Vous entrez tous dans le même labo : machines, plantes, graines, récolte, réserve, améliorations et équipe sont communs. Chacun garde son argent, son sac et ses véhicules, et ce que rapportent les dealers et livreurs est partagé. La serre est sauvegardée sur le serveur : on la retrouve avec « Reprendre la serre ».
+- **Mode multijoueur** : pas d'histoire. Tout le monde joue dans la même ville, en équipes de 4 joueurs au plus (il peut y avoir autant d'équipes qu'on veut, même incomplètes). « Créer une équipe » donne un code à 5 caractères ; les autres rejoignent avec le code ou dans la liste des équipes en jeu. Les membres d'une équipe entrent dans le même labo : machines, plantes, graines, récolte, réserve, améliorations et équipe sont communs. Chacun garde son argent, son sac et ses véhicules, et ce que rapportent les dealers et livreurs est partagé. La serre est sauvegardée sur le serveur : on la retrouve avec « Reprendre la serre ».
 
 ## L'histoire
 

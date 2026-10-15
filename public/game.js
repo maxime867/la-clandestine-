@@ -985,12 +985,12 @@ function drawBike(x,z,th,col,ped){
 /* les autres joueurs (multijoueur) */
 function drawOthers(now){
   for(const o of MP.others.values()){
-    if(o.hid)continue;
+    if(o.hid||(isMulti()&&o.cm!==CREW.code&&inLab(o.x,o.z)))continue;
     const oin=inLab(o.x,o.z),sc=oin?2.1:HS;
     if(o.k==='foot')drawHuman(o.x,o.z,o.th,o.look,o.ph,o.sp,sc);
     else if(o.k==='bike')drawBike(o.x,o.z,o.th,o.c,o.ph*3);
     else drawVeh({x:o.x,z:o.z,th:o.th,spr:{k:o.k,c:o.c},brk:false},now);
-    if(inView(o.x,o.z,6)){const pu=.5+.5*Math.sin(now/300+o.x);ring(o.x,o.z,(3+pu*.6)*sc/HS,'#7fd1ff',.25*sc/HS,.5)}
+    if(inView(o.x,o.z,6)){const pu=.5+.5*Math.sin(now/300+o.x);ring(o.x,o.z,oin?1.1+pu*.2:3+pu*.6,'#7fd1ff',oin?.08:.25,.5)}
   }
 }
 function drawPlayer(now){
@@ -1126,9 +1126,9 @@ function drawHUDLayer(now){
     if(g.state==='chase'){ctx.font='700 14px "Work Sans",sans-serif';ctx.textAlign='center';ctx.fillStyle='#ff4a30';ctx.fillText('!',s[0],s[1]-3.2*CAM.zoom-17)}
   }
   for(const o of MP.others.values()){
-    if(o.hid||!inView(o.x,o.z,8))continue;
+    if(o.hid||!inView(o.x,o.z,8)||(isMulti()&&o.cm!==CREW.code&&inLab(o.x,o.z))||(inLab()!==inLab(o.x,o.z)&&P.def.kind==='foot'))continue;
     const s=toScr(o.x,o.z),up=(o.k==='foot'||o.k==='bike'?2.2:3.2)*CAM.zoom+10;
-    pill(s[0],s[1]-up,o.n,'#7fd1ff',fmt(o.cash)+' · '+(DIS[o.hd]?DIS[o.hd].name:''));
+    pill(s[0],s[1]-up,o.n,'#7fd1ff',isMulti()?(o.cm?(o.cm===CREW.code?'Ton équipe':'Équipe '+o.cm):'')+' · '+fmt(o.cash):fmt(o.cash)+' · '+(DIS[o.hd]?DIS[o.hd].name:''));
     if(o.bub)pill(s[0],s[1]-up-38,'« '+o.bub.t+' »','#f3e6d6');
   }
   if(MP.myBub&&started&&!HIDE){const s=toScr(P.x,P.z);pill(s[0],s[1]-3*CAM.zoom-10,'« '+MP.myBub.t+' »','#7fd1ff')}
@@ -3309,17 +3309,18 @@ const MPK=new Set(['foot','bike','scooter','car','van','truck','suv','wagon','se
 const pnum=(v,a,b,d)=>typeof v==='number'&&isFinite(v)?clamp(v,a,b):d;
 const pcol=(v,d)=>Math.round(pnum(v,0,0xffffff,d));
 const mpReady=()=>!!MP.g&&MP.on;
-const partyCode=v=>{const c=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return c==='PUBLIC'||c.length===5?c:null};
-const partyName=c=>c==='PUBLIC'?'publique':c;
+const partyCode=v=>{const c=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return c==='PUBLIC'||c==='MULTI'||c.length===5?c:null};
+const partyName=c=>c==='PUBLIC'?'publique':c==='MULTI'?'multijoueur':c;
 const MPVER='serveur v2 · 2D';
 function newPartyCode(){let c='';const a=new Uint32Array(5);try{crypto.getRandomValues(a)}catch(e){for(let i=0;i<5;i++)a[i]=Math.random()*4294967296}
   for(let i=0;i<5;i++)c+=CALPHA[a[i]%CALPHA.length];return c}
 function mpSync(peers){
-  const seen=new Set();
+  const seen=new Set(),TM={};
   for(const p of peers){
     if(p.sameTab){MP.me=String(p.peer);continue}
     if(p.kind!=='viewer')continue;
     const pr=p.presence||{};
+    if(typeof pr.cm==='string'&&/^[A-Z0-9]{5}$/.test(pr.cm))(TM[pr.cm]=TM[pr.cm]||[]).push(cleanTxt(pr.n,18)||'Joueur');
     if(typeof pr.x!=='number'||typeof pr.z!=='number')continue;
     seen.add(p.peer);
     let o=MP.others.get(p.peer);
@@ -3334,6 +3335,8 @@ function mpSync(peers){
   }
   for(const [k,o] of MP.others)if(!seen.has(k)){MP.others.delete(k);if(started)toast(o.n+' a quitté la partie.')}
   MP.count=MP.others.size;
+  if(isMulti()&&CREW.code&&started)(TM[CREW.code]=TM[CREW.code]||[]).push(MP.nick);
+  MP.teams=TM;
 }
 function mpUpdate(dt){
   for(const o of MP.others.values()){
@@ -3344,7 +3347,7 @@ function mpUpdate(dt){
     o.sp=o.sp*.8+.2*Math.hypot(o.x-px,o.z-pz)/Math.max(dt,1e-3);o.ph+=o.sp*dt*.75;
     if(o.bub&&(o.bub.ttl-=dt)<=0)o.bub=null;
     // on ne traverse pas les autres joueurs
-    if(started&&!HIDE&&!o.hid&&!paused()){
+    if(started&&!HIDE&&!o.hid&&!paused()&&!(isMulti()&&o.cm!==CREW.code&&inLab(o.x,o.z))){
       const dx=P.x-o.x,dz=P.z-o.z,dd=Math.hypot(dx,dz),r=(P.def.kind==='foot'?.9:P.def.kind==='bike'||P.def.kind==='scooter'?1.4:2.2)+(o.k==='foot'?.9:o.k==='bike'||o.k==='scooter'?1.4:o.k==='truck'?3.4:2.1);
       if(dd<r&&dd>.01){const nx=dx/dd,nz=dz/dd;P.x+=nx*(r-dd);P.z+=nz*(r-dd);const vn=P.vx*nx+P.vz*nz;if(vn<0){P.vx-=1.4*vn*nx;P.vz-=1.4*vn*nz;if(-vn>6){Sfx.crash(Math.min(1,-vn/30));CAM.shake=Math.max(CAM.shake,Math.min(7,-vn*.3))}}}
     }
@@ -3411,7 +3414,7 @@ async function mpInit(){
   let saved=null;try{saved=localStorage.getItem('serre-party')}catch(e){}
   if(saved==='SOLO'){MP.state='solo'}
   else{
-    const code=partyCode(saved)||'PUBLIC';
+    const code=started&&G.mode!=='multi'?(partyCode(saved)||'PUBLIC'):'MULTI';
     for(let i=0;i<5&&!MP.g;i++){const r=await mpJoin(code,true);if(MP.g)break;if(/accès|invalide/.test(r))break;await new Promise(ok=>setTimeout(ok,2500))}
     if(MP.g&&started)toast(MP.code==='PUBLIC'?'Connecté à la partie publique.':'De retour dans la partie '+MP.code+'.','good');
   }
@@ -4706,17 +4709,19 @@ function updStory(dt){
 }
 $('quest').onclick=questClick;
 
-/* ---------- lobby (mode histoire / mode multijoueur) et serre partagée ---------- */
-/* Mode multijoueur : pas d'histoire. Tous les joueurs d'une même serre (code à 5 caractères) partagent le labo :
-   machines, plantes, graines, récolte, réserve, améliorations du labo et équipe. Chacun garde son argent, son sac, ses véhicules.
-   Un joueur fait autorité (« chef de serre ») : il fait pousser les plantes et diffuse l'état ; les autres lui envoient leurs actions.
-   Si le chef part, le joueur suivant reprend. L'état est sauvegardé sur le serveur (crews/CODE) toutes les 30 s. */
-var CREW={code:'',host:'',lastSnap:0,joinedAt:0,synced:false,seq:0,lastOpT:0,ack:{},g:null,snapT:0,saveT:20,payT:6,inc:0,loading:false,electT:0,hostName:''};
-const MKEY='serre-mp-v1';
+/* ---------- lobby (mode histoire / mode multijoueur) et équipes ---------- */
+/* Mode multijoueur : pas d'histoire. Tous les joueurs du mode multijoueur sont dans la même ville (salon « p-multi »).
+   Ils forment des équipes de 4 au plus (code à 5 caractères, salon d'équipe « t-code ») ; il peut y avoir autant d'équipes qu'on veut.
+   Chaque équipe a sa serre : machines, plantes, graines, récolte, réserve, améliorations du labo et équipe de dealers sont communs.
+   Chacun garde son argent, son sac, ses véhicules. Un joueur fait autorité (« chef de serre ») : il fait pousser les plantes et diffuse
+   l'état ; les autres lui envoient leurs actions. Si le chef part, le suivant reprend. Sauvegarde sur le serveur (crews/CODE) toutes les 30 s.
+   Les labos de toutes les équipes sont au même endroit, mais chacun ne voit que sa propre serre et ses coéquipiers à l'intérieur. */
+var CREW={code:'',host:'',lastSnap:0,joinedAt:0,synced:false,seq:0,lastOpT:0,ack:{},t:null,mem:new Map(),snapT:0,saveT:20,payT:6,inc:0,loading:false,electT:0,hostName:''};
+const MKEY='serre-mp-v1',TEAM_MAX=4;
 const SH_LV=['labo','lamp','engrais','hydro','vent','entrepot','livreur','jardinier','dealer','guetteur'];
 const isMulti=()=>!!G&&G.mode==='multi';
-const crewOn=()=>isMulti()&&!!CREW.code&&!!MP.g&&MP.code===CREW.code;
-const crewHost=()=>crewOn()&&CREW.host===MP.me&&!!MP.me;
+const crewOn=()=>isMulti()&&!!CREW.code&&!!CREW.t&&!!MP.me;
+const crewHost=()=>crewOn()&&CREW.host===MP.me;
 const crewClient=()=>crewOn()&&!crewHost();
 let REMOTE=0,DELTA=null;
 function readSave(k){try{const g=JSON.parse(localStorage.getItem(k));return g&&(g.v===4||g.v===5)&&typeof g.cash==='number'?g:null}catch(e){return null}}
@@ -4727,50 +4732,82 @@ function lobbyInit(){
   $('storyCont').hidden=!STORY_SAVED;
   $('storyInfo').textContent=STORY_SAVED?`Histoire en cours : ${fmt(G.cash+(G.clean||0)+(G.bank||0))}, ${(G.story&&CHAP_OF[G.story.q])?(CHAP_OF[G.story.q]<6?'chapitre '+CHAP_OF[G.story.q]:'épilogue'):'chapitre 1'}.`:'';
   const m=readSave(MKEY);
-  const cc=$('crewCont');cc.hidden=!(m&&m.crew);if(m&&m.crew)cc.textContent='Reprendre la serre '+m.crew;
+  const cc=$('crewCont');cc.hidden=!(m&&m.crew);if(m&&m.crew)cc.textContent='Reprendre mon équipe '+m.crew;
   $('crewNick').value=MP.nick;
+  lobbyTeams();setInterval(()=>{if(!started)lobbyTeams()},1000);
 }
+/* les équipes en jeu, vues depuis la ville du mode multijoueur */
+function lobbyTeams(){
+  const el=$('teamList');if(!el)return;
+  const T=MP.code==='MULTI'&&MP.teams?MP.teams:{},codes=Object.keys(T).sort((a,b)=>T[b].length-T[a].length);
+  const h=codes.map(c=>c+T[c].join()).join('|')+MP.code;if(el.dataset.h===h)return;el.dataset.h=h;
+  if(MP.code!=='MULTI'){el.innerHTML='<p class="note">Connexion à la ville du mode multijoueur…</p>';return}
+  el.innerHTML=codes.length?codes.map(c=>{const n=T[c].length,full=n>=TEAM_MAX;
+    return `<div class="item"><b>Équipe ${esc(c)} <span class="tag ${full?'fast':'ok'}">${n}/${TEAM_MAX}</span></b><span>${T[c].map(esc).join(', ')}</span><button class="btn ghost" data-team="${esc(c)}"${full?' disabled':''}>${full?'Complète':'Rejoindre'}</button></div>`}).join('')
+    :'<p class="note">Aucune équipe en jeu pour l’instant. Crée la tienne !</p>';
+}
+$('teamList').addEventListener('click',e=>{const b=e.target.closest('[data-team]');if(b&&!b.disabled)startCrew(b.dataset.team,false)});
 function startStory(fresh){
   if(fresh){G=newG('cite');G.began=1}
   G.mode='story';save();
-  const m=readSave(MKEY);if(MP.g&&m&&m.crew&&MP.code===m.crew)mpJoin('PUBLIC',true);
+  let sv=null;try{sv=localStorage.getItem('serre-party')}catch(e){}
+  const pc=partyCode(sv);if(MP.room&&MP.code==='MULTI')mpJoin(pc&&pc!=='MULTI'?pc:'PUBLIC',true);
   beginGame(fresh);
 }
 $('goBtn').onclick=()=>{if(STORY_SAVED){$('storyWarn').hidden=false;return}startStory(true)};
 $('storyNewYes').onclick=()=>startStory(true);
 $('storyCont').onclick=()=>startStory(false);
 function crewMsg(t){$('crewMsg').textContent=t}
-function startCrew(code,create){
+let crewBusy=false;
+async function startCrew(code,create){
+  if(crewBusy)return;
   const nk=cleanTxt($('crewNick').value,18);if(nk){MP.nick=nk;MP.last='';try{localStorage.setItem('serre-nick',nk)}catch(e){}}
   if(!MP.room){crewMsg(MP.state==='loading'?'Connexion au serveur en cours… réessaie dans quelques secondes.':'Multijoueur indisponible : ouvre le jeu par l’adresse du serveur.');return}
   if(create)code=newPartyCode();
-  code=partyCode(code);if(!code||code==='PUBLIC'){crewMsg('Le code fait 5 caractères, par exemple K7QPM.');return}
+  code=partyCode(code);if(!code||code==='PUBLIC'||code==='MULTI'){crewMsg('Le code fait 5 caractères, par exemple K7QPM.');return}
+  crewBusy=true;crewMsg('Connexion à l’équipe '+code+'…');
+  try{
+    const r=await teamJoin(code);
+    if(r!=='ok'){crewMsg(r);return}
+  }finally{crewBusy=false}
   const m=readSave(MKEY);
   if(m){G=m;migrate(G)}else G=newG('cite');
   G.mode='multi';G.began=1;if(G.crew!==code){G.lab=newG('cite').lab;G.seeds={jardin:5};G.raw={};G.stock={};for(const k of SH_LV)delete G.lv[k];G.deliv=[]}
   G.crew=code;save();
-  Object.assign(CREW,{code,host:'',lastSnap:0,joinedAt:performance.now(),synced:false,seq:0,ack:{},g:null,created:!!create});
-  beginGame(false);crewConnect(code,create);
+  Object.assign(CREW,{code,host:'',lastSnap:0,joinedAt:performance.now(),synced:false,seq:0,ack:{},created:!!create});
+  beginGame(false);
+  toast(create?`Équipe ${code} créée (4 joueurs au plus). D’autres équipes jouent dans la même ville.`:`Tu as rejoint l’équipe ${code}. Synchronisation de la serre…`,'good');
+  worldJoin();
 }
 $('crewNew').onclick=()=>startCrew(null,true);
 $('crewJoin').onclick=()=>startCrew($('crewIn').value,false);
 $('crewCont').onclick=()=>{const m=readSave(MKEY);if(m&&m.crew)startCrew(m.crew,false)};
 $('crewIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('crewJoin').click()});
-async function crewConnect(code,create){
+/* salon d'équipe : présence (pseudo), messages de la serre ; on refuse d'entrer si l'équipe a déjà 4 joueurs */
+async function teamJoin(code){
+  if(CREW.t){try{await CREW.t.leave()}catch(e){}CREW.t=null}
+  let t;try{t=await MP.room.join('t-'+code.toLowerCase())}catch(e){return 'Connexion à l’équipe impossible : '+mpErr(e)}
+  const mem=new Map();let got=false;
+  const sync=peers=>{mem.clear();for(const p of peers){if(p.sameTab){MP.me=String(p.peer);continue}const pr=p.presence||{};if(pr.cm===code)mem.set(String(p.peer),cleanTxt(pr.n,18)||'Joueur')}got=true};
+  const off=t.onPeers(ch=>sync(ch.peers),()=>{});
+  for(let i=0;i<20&&!got;i++)await new Promise(ok=>setTimeout(ok,100));
+  await new Promise(ok=>setTimeout(ok,500));
+  if(mem.size>=TEAM_MAX){off();try{await t.leave()}catch(e){}return `L’équipe ${code} est complète (${TEAM_MAX}/${TEAM_MAX}). Crée la tienne ou rejoins une autre équipe.`}
+  CREW.t=t;CREW.mem=mem;
+  t.presence({n:MP.nick,cm:code}).catch(()=>{});
+  t.onPeers(ch=>{if(CREW.t!==t)return;sync(ch.peers);CREW.mem=mem},()=>{});
+  t.on('crew',m=>{if(CREW.t===t)onCrewMsg(m)},()=>{});
+  return 'ok';
+}
+/* tout le mode multijoueur partage la même ville */
+async function worldJoin(){
   for(let i=0;i<8;i++){
     while(MP.busy)await new Promise(ok=>setTimeout(ok,200));
-    if(MP.g&&MP.code===code)break;
-    const r=await mpJoin(code,true);
-    if(MP.g&&MP.code===code)break;
-    toast('Connexion à la serre… '+r,'bad');await new Promise(ok=>setTimeout(ok,3000));
+    if(MP.g&&MP.code==='MULTI')return;
+    await mpJoin('MULTI',true);
+    if(MP.g&&MP.code==='MULTI')return;
+    await new Promise(ok=>setTimeout(ok,3000));
   }
-  if(!(MP.g&&MP.code===code)){toast('Impossible de rejoindre la serre '+code+'. Recharge la page.','bad');return}
-  crewAttach();CREW.joinedAt=performance.now();
-  toast(create?`Serre ${code} créée. Donne ce code à tes amis : ils entrent dans le même labo que toi.`:`Tu as rejoint la serre ${code}. Synchronisation du labo…`,'good');
-}
-function crewAttach(){
-  const g=MP.g;if(!g||CREW.g===g)return;CREW.g=g;
-  g.on('crew',m=>{if(MP.g===g)onCrewMsg(m)},()=>{});
 }
 
 /* ---------- état partagé ---------- */
@@ -4803,7 +4840,7 @@ function applyShared(S){
   if(Array.isArray(S.un))for(const id of S.un)if(SM[id])G.unlocked[id]=1;
   labSync();labZoneSync();syncCouriers();
 }
-function sendCrew(d){if(MP.g)MP.g.emit('crew',d).catch(()=>{})}
+function sendCrew(d){if(CREW.t)CREW.t.emit('crew',d).catch(()=>{})}
 function sendOp(o){CREW.seq++;CREW.lastOpT=performance.now();sendCrew({k:'op',n:CREW.seq,o})}
 function broadcastSnap(){CREW.snapT=.8;sendCrew({k:'snap',h:MP.me,a:CREW.ack,s:sharedOut()})}
 
@@ -4902,7 +4939,7 @@ for(const id of ['menu','tChoices','shop']){const el=$(id);if(!el)continue;el.ad
 {const o=toast;toast=function(...a){if(REMOTE)return;o(...a)}}
 
 /* ---------- chef de serre : élection, diffusion, sauvegarde ---------- */
-const crewMembers=()=>[MP.me,...[...MP.others.values()].filter(o=>o.cm===CREW.code).map(o=>o.id)].filter(Boolean).map(String).sort();
+const crewMembers=()=>[MP.me,...CREW.mem.keys()].filter(Boolean).map(String).sort();
 async function becomeHost(){
   CREW.host=MP.me;
   if(!CREW.synced&&!CREW.loading){
@@ -4917,20 +4954,19 @@ async function crewSaveDoc(){
 }
 function updCrew(dt){
   if(!isMulti()||!started||!CREW.code)return;
-  if(MP.g&&MP.code===CREW.code)crewAttach();
   if(!crewOn())return;
   CREW.electT-=dt;
   if(CREW.electT<=0){CREW.electT=1;
     const mem=crewMembers(),now=performance.now();
     const alive=CREW.host&&(CREW.host===MP.me||(mem.includes(CREW.host)&&now-CREW.lastSnap<4500));
     if(!alive&&now-CREW.joinedAt>2600&&!CREW.loading){const h=mem[0];if(h===MP.me)becomeHost();else{CREW.host=h;CREW.lastSnap=now}}
-    const hn=CREW.host===MP.me?'toi':((MP.others.get(CREW.host)||{}).n||'…');CREW.hostName=hn;
+    const hn=CREW.host===MP.me?'toi':(CREW.mem.get(CREW.host)||'…');CREW.hostName=hn;
   }
   if(crewHost()){
     CREW.snapT-=dt;if(CREW.snapT<=0)broadcastSnap();
     CREW.saveT-=dt;if(CREW.saveT<=0){CREW.saveT=30;crewSaveDoc()}
     CREW.payT-=dt;if(CREW.payT<=0){CREW.payT=6;
-      const to=[...MP.others.values()].filter(o=>o.cm===CREW.code).map(o=>o.id),n=to.length+1;
+      const to=[...CREW.mem.keys()],n=to.length+1;
       if(to.length&&CREW.inc>=n){const share=Math.floor(CREW.inc/n);G.cash-=share*to.length;G.earned-=share*to.length;sendCrew({k:'pay',to,amt:share})}
       CREW.inc=0}
   }
@@ -4939,16 +4975,16 @@ function updCrew(dt){
 /* carte « Serre partagée » à la place de l'objectif */
 function crewCard(el){
   el.classList.add('crew');
-  const mem=[...MP.others.values()].filter(o=>o.cm===CREW.code).map(o=>o.n);
-  const n=mem.length+1,h=`${CREW.code}|${n}|${CREW.hostName}|${CREW.synced}|${qOpen}|${crewOn()}`;
+  const mem=[...CREW.mem.values()];
+  const n=mem.length+1,h=`${CREW.code}|${mem.join()}|${CREW.hostName}|${CREW.synced}|${qOpen}|${crewOn()}|${Object.keys(MP.teams||{}).length}`;
   if(el.dataset.h===h)return;el.dataset.h=h;
-  $('qC').textContent='Mode multijoueur · serre partagée';
-  $('qT').textContent=CREW.code?`Serre ${CREW.code} · ${n} joueur${n>1?'s':''}`:'Serre partagée';
+  $('qC').textContent='Mode multijoueur · serre de ton équipe';
+  $('qT').textContent=CREW.code?`Équipe ${CREW.code} · ${n}/${TEAM_MAX}`:'Serre partagée';
   vis($('qP'),true);$('qP').textContent=!crewOn()?'Connexion…':!CREW.synced&&!crewHost()?'Synchronisation du labo…':crewHost()?'Tu gères la serre (les plantes poussent chez toi)':'Chef de serre : '+CREW.hostName;
-  $('qD').textContent=`Avec toi : ${mem.length?mem.join(', '):'personne pour l’instant. Donne le code '+CREW.code+' à tes amis.'}`;vis($('qD'),qOpen);
+  $('qD').textContent=`Avec toi : ${mem.length?mem.join(', '):'personne pour l’instant. Donne le code '+CREW.code+' à tes amis.'}${(()=>{const o=Object.keys(MP.teams||{}).filter(c=>c!==CREW.code).length;return o?` · ${o} autre${o>1?'s':''} équipe${o>1?'s':''} en ville`:''})()}`;vis($('qD'),qOpen);
   vis($('qS'),qOpen);$('qS').textContent='Labo, graines, récolte, réserve et équipe sont communs. Ton argent, ton sac et tes véhicules restent à toi.';
 }
-if(/[?&]debug=1\b/.test(location.search))window.__crew={get CREW(){return CREW},sharedOut,applyShared,startCrew,startStory,crewHost,crewClient,crewMembers};
+if(/[?&]debug=1\b/.test(location.search))window.__crew={get MP(){return MP},get CREW(){return CREW},sharedOut,applyShared,startCrew,startStory,crewHost,crewClient,crewMembers};
 
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */

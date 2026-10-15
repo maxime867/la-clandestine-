@@ -262,6 +262,8 @@ h2{font-size:18px}
 .rules summary{cursor:pointer;font-weight:600;padding:6px 0}
 #quest.crew{border-color:#7fd1ff;border-left-color:#7fd1ff}
 #quest.crew small{color:#7fd1ff}
+.mode .tl{font-size:13px;margin:6px 0 0;color:var(--muted);font-weight:600}
+#teamList .item .btn{white-space:nowrap}
 </style>
 <script src="claude-shim.js"></script>
 </head>
@@ -361,13 +363,15 @@ h2{font-size:18px}
           <p class="note warnNew" id="storyWarn" hidden>Une histoire est déjà en cours. « Nouvelle histoire » l’efface. <button class="btn red" id="storyNewYes">Oui, recommencer</button></p>
         </section>
         <section class="mode multi" aria-labelledby="mMultiT">
-          <span class="mtag">À plusieurs</span>
+          <span class="mtag">Équipes de 4</span>
           <h2 id="mMultiT">Mode multijoueur</h2>
-          <p>Pas d’histoire : une serre partagée. Tout le monde entre dans le même labo, plante, arrose, récolte et sèche ensemble. Chacun vend avec son propre sac et garde son argent ; ce que rapportent les dealers et livreurs de l’équipe est partagé.</p>
+          <p>Pas d’histoire. Forme une équipe de 4 joueurs au plus : vous partagez la même serre (labo, plantes, graines, réserve, équipe de dealers). Plusieurs équipes jouent en même temps dans la même ville. Chacun vend avec son propre sac et garde son argent.</p>
           <label class="field">Ton pseudo<input id="crewNick" maxlength="18" autocomplete="off"></label>
-          <div class="chips"><button class="btn" id="crewNew">Créer une serre</button><button class="btn" id="crewCont" hidden></button></div>
-          <div class="chips" style="align-items:center"><input id="crewIn" placeholder="CODE" maxlength="5" aria-label="Code de la serre" autocomplete="off" style="width:120px;letter-spacing:.18em;text-transform:uppercase"><button class="btn ghost" id="crewJoin">Rejoindre une serre</button></div>
+          <div class="chips"><button class="btn" id="crewNew">Créer une équipe</button><button class="btn" id="crewCont" hidden></button></div>
+          <div class="chips" style="align-items:center"><input id="crewIn" placeholder="CODE" maxlength="5" aria-label="Code de la serre" autocomplete="off" style="width:120px;letter-spacing:.18em;text-transform:uppercase"><button class="btn ghost" id="crewJoin">Rejoindre avec un code</button></div>
           <p class="note" id="crewMsg" role="status"></p>
+          <h3 class="tl">Équipes en jeu (4 joueurs au plus)</h3>
+          <div class="list" id="teamList"></div>
         </section>
       </div>
       <p class="note" id="mpStartStatus">Multijoueur : connexion…</p>
