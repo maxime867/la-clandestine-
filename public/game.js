@@ -987,10 +987,10 @@ function drawOthers(now){
   for(const o of MP.others.values()){
     if(o.hid||(isMulti()&&o.cm!==CREW.code&&inLab(o.x,o.z)))continue;
     const oin=inLab(o.x,o.z),sc=oin?2.1:HS;
-    if(o.k==='foot')drawHuman(o.x,o.z,o.th,o.look,o.ph,o.sp,sc);
+    if(o.k==='foot')drawHuman(o.x,o.z,o.th,o.look,o.ph,o.sp,sc,undefined,o.pk>0?1-o.pk/.38:0);
     else if(o.k==='bike')drawBike(o.x,o.z,o.th,o.c,o.ph*3);
     else drawVeh({x:o.x,z:o.z,th:o.th,spr:{k:o.k,c:o.c},brk:false},now);
-    if(inView(o.x,o.z,6)){const pu=.5+.5*Math.sin(now/300+o.x);ring(o.x,o.z,oin?1.1+pu*.2:3+pu*.6,'#7fd1ff',oin?.08:.25,.5)}
+    if(inView(o.x,o.z,6)){const pu=.5+.5*Math.sin(now/300+o.x);ring(o.x,o.z,oin?1.1+pu*.2:3+pu*.6,enemy(o)?'#ff5a40':'#7fd1ff',oin?.08:.25,.5)}
   }
 }
 function drawPlayer(now){
@@ -1128,7 +1128,7 @@ function drawHUDLayer(now){
   for(const o of MP.others.values()){
     if(o.hid||!inView(o.x,o.z,8)||(isMulti()&&o.cm!==CREW.code&&inLab(o.x,o.z))||(inLab()!==inLab(o.x,o.z)&&P.def.kind==='foot'))continue;
     const s=toScr(o.x,o.z),up=(o.k==='foot'||o.k==='bike'?2.2:3.2)*CAM.zoom+10;
-    pill(s[0],s[1]-up,o.n,'#7fd1ff',isMulti()?(o.cm?(o.cm===CREW.code?'Ton équipe':'Équipe '+o.cm):'')+' · '+fmt(o.cash):fmt(o.cash)+' · '+(DIS[o.hd]?DIS[o.hd].name:''));
+    pill(s[0],s[1]-up,o.n,enemy(o)?'#ff7a5a':'#7fd1ff',isMulti()?(o.cm?(o.cm===CREW.code?'Ton équipe':'Équipe '+o.cm):'')+' · '+fmt(o.cash):fmt(o.cash)+' · '+(DIS[o.hd]?DIS[o.hd].name:''));
     if(o.bub)pill(s[0],s[1]-up-38,'« '+o.bub.t+' »','#f3e6d6');
   }
   if(MP.myBub&&started&&!HIDE){const s=toScr(P.x,P.z);pill(s[0],s[1]-3*CAM.zoom-10,'« '+MP.myBub.t+' »','#7fd1ff')}
@@ -2948,7 +2948,7 @@ function drawMini(){
     mx.fillStyle=T.col;mx.fillRect(X(sh.x)-3.5*f,X(sh.z)-3.5*f,7*f,7*f);mx.strokeStyle='#120e0d';mx.lineWidth=f;mx.strokeRect(X(sh.x)-3.5*f,X(sh.z)-3.5*f,7*f,7*f);
     if(big){mx.font='600 12px "Work Sans",sans-serif';mx.textAlign='center';mx.lineWidth=3;mx.strokeStyle='rgba(18,14,13,.9)';mx.strokeText(T.short,X(sh.x),X(sh.z)-9);mx.fillStyle='#f3e6d6';mx.fillText(T.short,X(sh.x),X(sh.z)-9)}
   }
-  for(const o of MP.others.values()){if(o.hid)continue;mx.fillStyle='#7fd1ff';mx.strokeStyle='#0b2230';mx.lineWidth=1.5*f;mx.beginPath();mx.arc(X(o.x),X(o.z),4.5*f,0,7);mx.fill();mx.stroke();
+  for(const o of MP.others.values()){if(o.hid)continue;mx.fillStyle=enemy(o)?'#ff5a40':'#7fd1ff';mx.strokeStyle='#0b2230';mx.lineWidth=1.5*f;mx.beginPath();mx.arc(X(o.x),X(o.z),4.5*f,0,7);mx.fill();mx.stroke();
     if(big){mx.font='600 12px "Work Sans",sans-serif';mx.textAlign='center';mx.lineWidth=3;mx.strokeStyle='rgba(18,14,13,.9)';mx.strokeText(o.n,X(o.x),X(o.z)-10);mx.fillStyle='#7fd1ff';mx.fillText(o.n,X(o.x),X(o.z)-10)}}
   if(CAR){mx.fillStyle='#8fbf4a';mx.strokeStyle='#120e0d';mx.lineWidth=f;mx.fillRect(X(CAR.x)-3*f,X(CAR.z)-3*f,6*f,6*f);mx.strokeRect(X(CAR.x)-3*f,X(CAR.z)-3*f,6*f,6*f)}
   if(DV){mx.fillStyle='#ffa63d';mx.fillRect(X(DV.e.x)-2.5*f,X(DV.e.z)-2.5*f,5*f,5*f)}
@@ -4976,15 +4976,141 @@ function updCrew(dt){
 function crewCard(el){
   el.classList.add('crew');
   const mem=[...CREW.mem.values()];
-  const n=mem.length+1,h=`${CREW.code}|${mem.join()}|${CREW.hostName}|${CREW.synced}|${qOpen}|${crewOn()}|${Object.keys(MP.teams||{}).length}`;
+  const n=mem.length+1,h=`${G.pvpWins||0}|${CREW.code}|${mem.join()}|${CREW.hostName}|${CREW.synced}|${qOpen}|${crewOn()}|${Object.keys(MP.teams||{}).length}`;
   if(el.dataset.h===h)return;el.dataset.h=h;
   $('qC').textContent='Mode multijoueur · serre de ton équipe';
   $('qT').textContent=CREW.code?`Équipe ${CREW.code} · ${n}/${TEAM_MAX}`:'Serre partagée';
   vis($('qP'),true);$('qP').textContent=!crewOn()?'Connexion…':!CREW.synced&&!crewHost()?'Synchronisation du labo…':crewHost()?'Tu gères la serre (les plantes poussent chez toi)':'Chef de serre : '+CREW.hostName;
   $('qD').textContent=`Avec toi : ${mem.length?mem.join(', '):'personne pour l’instant. Donne le code '+CREW.code+' à tes amis.'}${(()=>{const o=Object.keys(MP.teams||{}).filter(c=>c!==CREW.code).length;return o?` · ${o} autre${o>1?'s':''} équipe${o>1?'s':''} en ville`:''})()}`;vis($('qD'),qOpen);
-  vis($('qS'),qOpen);$('qS').textContent='Labo, graines, récolte, réserve et équipe sont communs. Ton argent, ton sac et tes véhicules restent à toi.';
+  vis($('qS'),qOpen);$('qS').textContent=`Labo, graines, récolte, réserve et équipe sont communs ; ton argent et ton sac restent à toi. Rivaux (en rouge) : frappe-les pour les dépouiller, ou braque leur serre depuis la porte du labo (Options). Bagarres gagnées : ${G.pvpWins||0}.`;
 }
 if(/[?&]debug=1\b/.test(location.search))window.__crew={get MP(){return MP},get CREW(){return CREW},sharedOut,applyShared,startCrew,startStory,crewHost,crewClient,crewMembers};
+
+/* ---------- conflits entre équipes (mode multijoueur) : bagarres de rue et braquages de serre ---------- */
+/* Un joueur frappe un joueur d'une autre équipe : la victime encaisse chez elle (événement « pvp » dans la ville).
+   À 0 de vie, elle est KO : elle perd 30 % du produit de son sac et 10 % de son argent sale, qui vont à l'agresseur, puis repart de son labo.
+   Braquage : devant la porte du labo, « Options » propose de braquer la serre d'une équipe rivale. Il faut tenir 25 s devant la porte ;
+   l'équipe visée est prévenue et peut venir défendre. Réussi : le chef de la serre visée cède 25 % de la réserve et de la récolte. */
+const PVP={g:null,last:new Map(),raid:null,alert:null,cool:0,pend:null};
+const RAID_TIME=25,RAID_R=9;
+const enemy=o=>isMulti()&&!!o&&!!o.cm&&o.cm!==CREW.code;
+const inWorld=()=>started&&!ended&&!INT&&!HIDE&&!inLab()&&!CINE;
+function pvpSend(d){if(MP.g&&MP.code==='MULTI')MP.g.emit('pvp',d).catch(()=>{})}
+function pvpAttach(){
+  const g=MP.g;if(!g||PVP.g===g||MP.code!=='MULTI')return;PVP.g=g;
+  g.on('pvp',m=>{if(MP.g===g)onPvp(m)},()=>{});
+}
+/* coup de poing : on cherche d'abord un joueur d'une équipe rivale devant soi */
+{const o=updCombat;updCombat=function(dt){
+  const was=punchHit,on=punchT>0;o(dt);
+  if(!(on&&!was&&punchHit)||!isMulti()||!inWorld())return;
+  const fx=Math.sin(P.th),fz=Math.cos(P.th);let best=null,bd=3.6;
+  for(const q of MP.others.values()){if(!enemy(q)||q.hid||q.k!=='foot'||inLab(q.x,q.z))continue;const dx=q.x-P.x,dz=q.z-P.z,d=Math.hypot(dx,dz);if(d<bd&&(dx*fx+dz*fz)/(d||1)>.3){bd=d;best=q}}
+  if(!best)return;
+  const dmg=Math.round(R(12,18));
+  pvpSend({k:'hit',to:best.id,d:dmg,fx:Math.round(fx*100)/100,fz:Math.round(fz*100)/100,tm:CREW.code});
+  floater(best.x,best.z-2.5,'-'+dmg,'#ffd24a',false);best.pk=.38;CAM.shake=Math.max(CAM.shake,2.5);Sfx.crash(.3);
+  G.heat=Math.min(100,G.heat+4*heatMult());
+  if(witness(50)){G.heat=Math.max(G.heat,65);toast('Des policiers t’ont vu te battre !','bad')}
+}}
+function onPvp(m){
+  if(!isMulti()||m.sameTab)return;
+  const d=m.data||{},from=String(m.peer||''),att=MP.others.get(from),now=performance.now();
+  switch(d.k){
+    case 'hit':{
+      if(att)att.pk=.38;
+      if(d.to!==MP.me){const v=MP.others.get(String(d.to));if(v&&inView(v.x,v.z,8))floater(v.x,v.z-2.5,'-'+Math.round(pnum(d.d,0,30,0)),'#ffd24a',false);return}
+      if(!att||!enemy(att)||!inWorld()||P.def.kind!=='foot')return;
+      if(now-(PVP.last.get(from)||0)<280)return;PVP.last.set(from,now);
+      if(Math.hypot(att.x-P.x,att.z-P.z)>7)return;
+      const dmg=clamp(Math.round(pnum(d.d,0,30,12)),8,20);
+      G.hp-=dmg;CAM.shake=Math.max(CAM.shake,5);Sfx.crash(.4);floater(P.x,P.z-2.5,'-'+dmg+' vie','#ff5a40',false);
+      P.vx+=pnum(d.fx,-1,1,0)*7;P.vz+=pnum(d.fz,-1,1,0)*7;threat=true;
+      if(!PVP.hitT||now-PVP.hitT>6000)toast(`${att.n} (équipe ${att.cm}) te tombe dessus ! Riposte avec 👊 ou F.`,'bad');PVP.hitT=now;
+      if(G.hp<=0)pvpKO(from,att);
+      return}
+    case 'ko':{
+      const an=cleanTxt(d.an,18)||'Quelqu’un',vn=cleanTxt(d.vn,18)||'Quelqu’un';
+      if(d.by===MP.me){G.pvpWins=(G.pvpWins||0)+1;toast(`${vn} est KO ! Tu ramasses ce qu’il avait sur lui.`,'good');Sfx.cash();save()}
+      else if(MP.others.size)toast(`${an} a mis ${vn} KO.`);
+      return}
+    case 'loot':{
+      if(d.to!==MP.me)return;
+      let got=0;for(const s of STRAINS){const n=Math.floor(pnum(d.p&&d.p[s.id],0,5000,0));if(n)got+=bagAddProd(s.id,n)}
+      const c=Math.floor(pnum(d.c,0,1e7,0));G.cash+=c;G.earned+=c;
+      if(got||c){floater(P.x,P.z-3,(c?'+'+fmt(c):'')+(got?` +${got} u.`:''),'#ffd24a',true);coins(P.x,P.z,10);
+        toast(d.raid?`Braquage réussi : ${got} unités dans ton sac${c?' et '+fmt(c):''}.`:`Butin : ${got} unités${c?' et '+fmt(c):''}.`,'good')}
+      else if(d.raid)toast('Braquage réussi… mais leur réserve était vide.','bad');
+      if(d.raid)PVP.pend=null;
+      save();return}
+    case 'raid':{
+      if(d.team!==CREW.code)return;
+      PVP.alert={by:from,bn:cleanTxt(d.bn,18)||'?',bt:cleanTxt(d.bt,8),t:RAID_TIME+2};
+      toast(`ALERTE : ${PVP.alert.bn} (équipe ${PVP.alert.bt}) braque votre serre ! Viens défendre la porte du labo.`,'bad');Sfx.alert();
+      if(LAB)WP={x:LAB.sh.door.x,z:LAB.sh.door.z,label:'Défendre la serre'};
+      return}
+    case 'raidx':{if(d.team===CREW.code&&PVP.alert){PVP.alert=null;toast('Le braquage de votre serre a échoué.','good');if(WP&&WP.label==='Défendre la serre')WP=null}return}
+    case 'raidok':{
+      if(d.team!==CREW.code)return;
+      PVP.alert=null;if(WP&&WP.label==='Défendre la serre')WP=null;
+      if(crewHost()){
+        const p={};let n=0;
+        for(const s of STRAINS){const a=Math.floor((G.stock[s.id]||0)*.25),b=Math.floor((G.raw[s.id]||0)*.25);if(a){G.stock[s.id]-=a}if(b){G.raw[s.id]-=b}if(a+b){p[s.id]=a+b;n+=a+b}}
+        pvpSend({k:'loot',to:from,p,c:0,raid:1});CREW.snapT=0;save();
+        toast(`Votre serre a été braquée : ${n} unités volées dans la réserve.`,'bad');
+      }else toast('Votre serre a été braquée !','bad');
+      return}
+  }
+}
+function pvpKO(attacker,att){
+  const p={};let n=0;
+  for(const s of STRAINS){const k=Math.floor((G.bag.p[s.id]||0)*.3);if(k){G.bag.p[s.id]-=k;p[s.id]=k;n+=k}}
+  const c=Math.floor(G.cash*.1);G.cash-=c;
+  pvpSend({k:'loot',to:attacker,p,c});
+  pvpSend({k:'ko',by:attacker,an:att?att.n:'',vn:MP.nick});
+  if(PVP.raid)raidStop(true);
+  G.hp=45;G.pvpLoss=(G.pvpLoss||0)+1;spawnHome();save();
+  openDialog('KO','#ff5a40',{text:`${att?att.n:'Quelqu’un'} (équipe ${att?att.cm:'?'}) t’a mis KO. Il est reparti avec ${n} unités de ton sac et ${fmt(c)}. Tu te réveilles dans ton labo.`,choices:[{label:'Se relever',close:1}]},()=>{});
+}
+/* braquage d'une serre rivale, depuis la porte du labo */
+{const o=findTarget;findTarget=function(){o();if(tgt&&tgt.k==='enterlab'&&isMulti()&&Object.keys(MP.teams||{}).some(c=>c!==CREW.code))tgt.opt=true}}
+{const o=actOpt;actOpt=function(){findTarget();if(tgt&&tgt.k==='enterlab'&&isMulti()){raidMenu();return}o()};$('bOpt').onclick=actOpt}
+function raidMenu(){
+  const T=MP.teams||{},rivals=Object.keys(T).filter(c=>c!==CREW.code);
+  if(PVP.cool>0){openDialog('Braquage','#ff5a40',{text:`Trop tôt : tes hommes sont encore repérés. Attends ${Math.ceil(PVP.cool)} s.`,choices:[{label:'OK',close:1}]},()=>{});return}
+  openDialog('Braquer une serre rivale','#ff5a40',{text:`Choisis l’équipe à braquer. Il faudra tenir ${RAID_TIME} secondes devant la porte du labo : l’équipe visée sera prévenue et pourra venir se défendre. Si tu réussis, tu repars avec un quart de sa réserve.`,choices:[
+    ...rivals.slice(0,5).map(c=>({label:`Équipe ${c}`,desc:T[c].join(', '),fn:()=>{raidStart(c);return `Le braquage commence. Reste devant la porte ${RAID_TIME} secondes. Ils arrivent peut-être…`}})),
+    {label:'Entrer dans mon labo',quick:1,fn:()=>{const [x,z]=labWorld(1.6,0);P.x=x;P.z=z;P.th=LAB.spawn.th;P.vx=P.vz=0}},
+    {label:'Annuler',close:1}]},()=>{});
+}
+function raidStart(code){
+  PVP.raid={team:code,t:RAID_TIME};
+  pvpSend({k:'raid',team:code,bn:MP.nick,bt:CREW.code});
+  G.heat=Math.min(100,G.heat+10);
+}
+function raidStop(fail){
+  const r=PVP.raid;if(!r)return;PVP.raid=null;
+  if(fail){pvpSend({k:'raidx',team:r.team});toast('Braquage raté.','bad')}
+}
+function updPvp(dt){
+  if(!isMulti()||!started)return;
+  pvpAttach();
+  PVP.cool=Math.max(0,PVP.cool-dt);
+  for(const o of MP.others.values())if(o.pk>0)o.pk=Math.max(0,o.pk-dt);
+  if(PVP.alert){PVP.alert.t-=dt;if(PVP.alert.t<=0)PVP.alert=null}
+  const r=PVP.raid;
+  if(r&&!paused()){
+    const d=LAB?Math.hypot(P.x-LAB.sh.door.x,P.z-LAB.sh.door.z):99;
+    if(d>RAID_R||INT||inLab()||P.def.kind!=='foot'){raidStop(true);return}
+    r.t-=dt;
+    if(r.t<=0){PVP.raid=null;PVP.cool=120;PVP.pend={t:6};pvpSend({k:'raidok',team:r.team});toast('Braquage réussi ! Le butin arrive…','good')}
+  }
+  if(PVP.pend){PVP.pend.t-=dt;if(PVP.pend.t<=0){PVP.pend=null;toast('Personne de cette équipe ne gardait la réserve : rien à prendre cette fois.','bad')}}
+  if(PVP.raid)SBAN={txt:`Braquage de la serre ${PVP.raid.team} · ${Math.ceil(PVP.raid.t)} s · reste devant la porte`,bg:'rgba(180,40,30,.92)'};
+  else if(PVP.alert)SBAN={txt:`Votre serre est braquée par ${PVP.alert.bn} · ${Math.ceil(PVP.alert.t)} s · défends la porte !`,bg:'rgba(180,40,30,.92)'};
+}
+{const o=updStory;updStory=function(dt){o(dt);updPvp(dt)}}
+if(/[?&]debug=1\b/.test(location.search))window.__pvp={get raid(){return PVP.raid},paused:()=>paused(),PVP};
 
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */

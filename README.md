@@ -74,6 +74,10 @@ L'exemple utilise **Render**. Railway, Fly.io ou n'importe quel hébergeur Node.
 - **Mode histoire** (solo) : les cinq chapitres avec El Refe, décrits ci-dessous.
 - **Mode multijoueur** : pas d'histoire. Tout le monde joue dans la même ville, en équipes de 4 joueurs au plus (il peut y avoir autant d'équipes qu'on veut, même incomplètes). « Créer une équipe » donne un code à 5 caractères ; les autres rejoignent avec le code ou dans la liste des équipes en jeu. Les membres d'une équipe entrent dans le même labo : machines, plantes, graines, récolte, réserve, améliorations et équipe sont communs. Chacun garde son argent, son sac et ses véhicules, et ce que rapportent les dealers et livreurs est partagé. La serre est sauvegardée sur le serveur : on la retrouve avec « Reprendre la serre ».
 
+### Conflits entre équipes
+
+Les joueurs des autres équipes apparaissent en rouge. Frappe-les (👊 ou F) : à 0 de vie, un joueur est KO et l'agresseur récupère 30 % du produit de son sac et 10 % de son argent sale. On ne peut pas frapper ses coéquipiers. Devant la porte du labo, « Options » permet de **braquer la serre d'une équipe rivale** : il faut tenir 25 secondes devant la porte. L'équipe visée est alertée et peut venir se défendre ; si le braquage réussit, elle perd un quart de sa réserve.
+
 ## L'histoire
 
 Tu as dix-neuf ans et ton père vient de te mettre dehors. La ville est coupée en deux par la rivière : le **Sud**, tenu par **El Refe**, et le **Nord**, tenu par **Madame Vega**. Une carte « Objectif » en haut à gauche et une flèche jaune te guident à travers cinq chapitres :
