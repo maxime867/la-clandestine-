@@ -80,7 +80,7 @@ Les joueurs des autres équipes apparaissent en rouge. Frappe-les (👊 ou F) : 
 
 ## L'histoire
 
-Tu as dix-neuf ans et ton père vient de te mettre dehors. La ville est coupée en deux par la rivière : le **Sud**, tenu par **El Refe**, et le **Nord**, tenu par **Madame Vega**. Une carte « Objectif » en haut à gauche et une flèche jaune te guident à travers cinq chapitres :
+Tu as dix-neuf ans et ton père vient de te mettre dehors. La ville a trois quartiers : le **Nord** de **Madame Vega** (les Tours, le Port), de l'autre côté de la rivière ; le **centre-ville**, neutre (place de la République, Banque Centrale, commissariat, boutiques) ; et, passé la voie ferrée, le **Sud** d'**El Refe** (les Jardins, où se trouve ton labo, et La Butte). Une carte « Objectif » en haut à gauche et une flèche jaune te guident à travers cinq chapitres :
 
 1. **À la rue** : El Refe t'apprend à vendre et te confie un labo, contre 30 % de tes gains à vie.
 2. **Les bleus** : opération de police sur les Lilas (patrouilles, flics à pied, barrages). Téléphone, équipe, et premiers contacts avec Madame Vega.
