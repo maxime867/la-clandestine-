@@ -452,15 +452,13 @@ function road(ctrl,w,o){o=o||{};const pts=o.raw?ctrl:smooth(ctrl,8,o.closed);ROA
 const qN=x=>riverZ(x)-32,qS=x=>riverZ(x)+34; // quais au nord et au sud de la rivière
 const riv=(f,x0,x1)=>{const o=[];for(let x=x0;x<=x1;x+=40)o.push([x,f(x)]);if(o[o.length-1][0]!==x1)o.push([x1,f(x1)]);return o};
 // centre-ville : le rond-point autour de la place, les grands axes, les diagonales
-road(circlePts(0,0,58,40),18,{raw:1,closed:1,name:'Place de la République'});
+road(circlePts(0,0,58,40),18,{raw:1,closed:1,name:'Place de la République'});ROADS[ROADS.length-1].oneway=1; // giratoire : sens inverse des aiguilles d'une montre
 road([[0,-58],[0,-300],[-6,-450],[0,-610]],20,{name:'Avenue de la République'});
 road([[0,58],[4,300],[-4,460],[0,610]],20,{name:'Avenue du Midi'});
 road([[-58,0],[-300,-6],[-450,4],[-610,0]],20,{name:'Boulevard Haussmann'});
 road([[58,0],[300,6],[445,0],[610,0]],20,{name:'Boulevard Voltaire'});
-road([[-41,-41],[-170,-130],[-320,-178],[-330,-260],[-330,-610]],20,{name:'Avenue des Tours'});
-road([[41,-41],[150,-120],[228,-178],[240,-260],[240,-610]],20,{name:'Avenue du Port'});
-road([[-41,41],[-160,130],[-300,214],[-370,298]],16,{name:'Allée des Jardins'});
-road([[41,41],[170,140],[300,214],[370,300]],16,{name:'Rue de la Butte'});
+road([[-190,-107],[-320,-178],[-330,-260],[-330,-610]],20,{name:'Avenue des Tours'});
+road([[190,-111],[228,-178],[240,-260],[240,-610]],20,{name:'Avenue du Port'});
 road(riv(qS,-610,330).concat([[400,-160],[440,-80],[445,0]]),16,{name:'Quai de la Sinueuse'});
 road([[-610,190],[-300,186],[0,190],[300,194],[610,190]],20,{name:'Boulevard du Midi'});
 road([[-610,-110],[-300,-104],[0,-110],[300,-112],[425,-112]],16,{name:'Rue Saint-Honoré'});
@@ -537,15 +535,6 @@ function genWorld(){
       for(const s of [-1,1]){const x=a[0]-dz/l*s*(r.w/2+5),z=a[1]+dx/l*s*(r.w/2+5);if(maskAt(x,z)===0&&Math.random()<.55)binOf(x,z).trees.push({x,z,s:R(.55,.8),c:tc()})}}}
   // arbres autour de la place
   for(let i=0;i<16;i++){const a=i/16*6.283,x=PLAZA.x+Math.cos(a)*(PLAZA.r-3),z=PLAZA.z+Math.sin(a)*(PLAZA.r-3);binOf(x,z).trees.push({x,z,s:.7,c:0x4f8a2f})}
-  // voitures garées le long des rues
-  for(const r of ROADS){if(r.major)continue;
-    for(let k=2;k<r.pts.length-2;k++){if(Math.random()>.2)continue;const a=r.pts[k-1],b=r.pts[k+1];const dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1;
-      const s=Math.random()<.5?-1:1,x=r.pts[k][0]-dz/l*s*(r.w/2-1.5),z=r.pts[k][1]+dx/l*s*(r.w/2-1.5);
-      if(maskAt(x,z)!==1||ROADS.some(o=>o!==r&&o.pts.some(p=>Math.abs(p[0]-x)<24&&Math.abs(p[1]-z)<24)))continue;
-      const along=Math.abs(dx)>Math.abs(dz),hw=along?2.3:.95,hl=along?.95:2.3;
-      const B=binOf(x,z);if(B.cars.some(c=>Math.hypot(c.x-x,c.z-z)<7))continue;
-      B.cars.push({x,z,th:along?(dx>0?Math.PI/2:-Math.PI/2)*(Math.random()<.5?1:-1):(Math.random()<.5?0:Math.PI),k:pick(CARK),c:pick(CARCOLS)});
-      addRectAll({x0:x-hw,x1:x+hw,z0:z-hl,z1:z+hl})}}
   // lampadaires
   for(const r of ROADS){let side=1;for(let k=0;k<r.pts.length-1;k+=5){const a=r.pts[k],b=r.pts[k+1],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1;side=-side;
     const nx=-dz/l*side,nz=dx/l*side,px=a[0]+nx*(r.w/2+1.8),pz=a[1]+nz*(r.w/2+1.8),m=maskAt(px,pz);if(m===2||m===4||m===5)continue;
@@ -607,7 +596,7 @@ function astar(s,t){
   const pop=()=>{const top=open[0],last=open.pop();if(open.length){open[0]=last;let i=0;for(;;){const l=2*i+1,r=l+1;let m=i;if(l<open.length&&open[l][0]<open[m][0])m=l;if(r<open.length&&open[r][0]<open[m][0])m=r;if(m===i)break;[open[m],open[i]]=[open[i],open[m]];i=m}}return top};
   let it=0;
   while(open.length&&it++<6000){const [,id]=pop();if(id===t.id)break;if(closed.has(id))continue;closed.add(id);const n=NODES[id],gn=g.get(id);
-    for(const m of n.adj){const o=NODES[m],ng=gn+Math.hypot(o.x-n.x,o.z-n.z);if(ng<(g.get(m)??1e18)){g.set(m,ng);from.set(m,id);push([ng+Math.hypot(o.x-t.x,o.z-t.z),m])}}}
+    for(const m of n.adj){const o=NODES[m];if(o.r===n.r&&ROADS[n.r].oneway&&(o.k-n.k+ROADS[n.r].pts.length)%ROADS[n.r].pts.length===1)continue;const ng=gn+Math.hypot(o.x-n.x,o.z-n.z);if(ng<(g.get(m)??1e18)){g.set(m,ng);from.set(m,id);push([ng+Math.hypot(o.x-t.x,o.z-t.z),m])}}}
   if(!from.has(t.id))return [s,t];
   const path=[t];let c=t.id;while(c!==s.id){c=from.get(c);path.push(NODES[c])}return path.reverse();
 }
@@ -5702,6 +5691,69 @@ function updLaunder(dt){
     toast('💸 Ton argent est sale. Le Blanchisseur (costume blanc, à la terrasse de la place de la République) peut t’apprendre à le blanchir. Suis la flèche.','good')}}
 }
 {const o=updStory;updStory=function(dt){o(dt);updLaunder(dt)}}
+
+/* ---------- places de parking le long des rues, et un giratoire lisible ---------- */
+/* Places peintes en créneau des deux côtés des rues (loin des carrefours, pas sur les ponts ni dans les virages serrés),
+   une voiture garée dans à peu près une place sur deux. Le giratoire de la place de la République est à sens unique
+   (sens inverse des aiguilles d'une montre) : flèches peintes, îlot central bordé, quatre entrées seulement. */
+const BAYS=[],BAYG=new Map(),BAY_L=5.6,BAY_W=2.3;
+(function(){
+  const rnd=mulberry32(9090);
+  const nearInter=(x,z)=>{const ci=Math.floor((x+640)/IG),cj=Math.floor((z+640)/IG);
+    for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)for(const I of IGRID.get((ci+a)+','+(cj+b))||[])if(Math.hypot(I.x-x,I.z-z)<I.R+17)return true;return false};
+  const nearDoor=(x,z)=>SHOPS.some(s=>Math.hypot(s.x-x,s.z-z)<7||s.park&&Math.hypot(s.park.x-x,s.park.z-z)<7)||(LAB&&LAB.park&&Math.hypot(LAB.park.x-x,LAB.park.z-z)<8);
+  const wetAt=(r,s)=>{const c=r.cum;let lo=0,hi=c.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(c[m]<=s)lo=m;else hi=m-1}return r.wet[lo]||r.wet[Math.min(lo+1,r.wet.length-1)]};
+  ROADS.forEach((r,ri)=>{
+    if(r.closed||!r.cum||r.len<40)return;
+    for(const side of [-1,1]){
+      let run=0;
+      for(let s=12;s<r.len-12;s+=BAY_L){
+        if(run>=6){run=0;continue} // un espace toutes les six places
+        const c=roadPos(ri,s,0),c2=roadPos(ri,s+BAY_L,0);
+        if(c[2]*c2[2]+c[3]*c2[3]<.985){run=0;continue}
+        const off=(r.w/2-BAY_W/2-.15)*side,q=roadPos(ri,s+BAY_L/2,off),x=q[0],z=q[1];
+        if(wetAt(r,s)||wetAt(r,s+BAY_L)||maskAt(x,z)!==1||nearInter(x,z)||nearDoor(x,z)){run=0;continue}
+        if(BL[0]&&binOf(x,z).cars.some(o=>Math.hypot(o.x-x,o.z-z)<6)){run=0;continue}
+        const b={x,z,a:Math.atan2(q[2],q[3]),side,ri};BAYS.push(b);run++;
+        const k=Math.floor((x+640)/IG)+','+Math.floor((z+640)/IG);if(!BAYG.has(k))BAYG.set(k,[]);BAYG.get(k).push(b);
+        if(rnd()<.48){
+          const th=b.a+(rnd()<.5?0:Math.PI),ax=Math.abs(Math.sin(b.a)),az=Math.abs(Math.cos(b.a)),hl=2.3,hw=.95;
+          binOf(x,z).cars.push({x,z,th,k:CARK[Math.floor(rnd()*CARK.length)],c:CARCOLS[Math.floor(rnd()*CARCOLS.length)]});
+          addRectAll({x0:x-(ax*hl+az*hw),x1:x+(ax*hl+az*hw),z0:z-(az*hl+ax*hw),z1:z+(az*hl+ax*hw)});b.car=1;
+        }
+      }
+    }
+  });
+})();
+function drawBays(){
+  const i0=Math.floor((VB.x0-10+640)/IG),i1=Math.floor((VB.x1+10+640)/IG),j0=Math.floor((VB.z0-10+640)/IG),j1=Math.floor((VB.z1+10+640)/IG);
+  ctx.strokeStyle='rgba(240,236,226,.85)';ctx.lineWidth=.2;ctx.beginPath();
+  for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++)for(const b of BAYG.get(i+','+j)||[]){
+    const ux=Math.sin(b.a),uz=Math.cos(b.a),nx=uz*b.side,nz=-ux*b.side,hl=BAY_L/2,hw=BAY_W/2;
+    // trait du côté de la chaussée et séparations entre les places
+    const p=(l,w)=>[b.x+ux*l+nx*w,b.z+uz*l+nz*w];
+    let [ax,az]=p(-hl,-hw),[bx,bz]=p(hl,-hw);ctx.moveTo(ax,az);ctx.lineTo(bx,bz);
+    [ax,az]=p(-hl,-hw);[bx,bz]=p(-hl,hw);ctx.moveTo(ax,az);ctx.lineTo(bx,bz);
+    [ax,az]=p(hl,-hw);[bx,bz]=p(hl,hw);ctx.moveTo(ax,az);ctx.lineTo(bx,bz);
+  }
+  ctx.stroke();
+}
+/* giratoire : bordure de l'îlot, flèches dans le sens de circulation */
+const RING=ROADS.find(r=>r.oneway);
+function drawRing(t){
+  if(!RING||!inView(PLAZA.x,PLAZA.z,PLAZA.r+30))return;
+  ctx.strokeStyle='#d8d2c4';ctx.lineWidth=.8;ctx.beginPath();ctx.arc(PLAZA.x,PLAZA.z,PLAZA.r+1.6,0,6.3);ctx.stroke();
+  ctx.strokeStyle='rgba(200,40,30,.75)';ctx.lineWidth=.5;ctx.setLineDash([1.2,1.2]);ctx.beginPath();ctx.arc(PLAZA.x,PLAZA.z,PLAZA.r+2.4,0,6.3);ctx.stroke();ctx.setLineDash([]);
+  const rad=58;ctx.fillStyle='rgba(240,236,226,.85)';
+  for(let k=0;k<8;k++){const a=k/8*6.283+.39,x=PLAZA.x+Math.cos(a)*rad,z=PLAZA.z+Math.sin(a)*rad;
+    // sens de circulation : angle décroissant (sens inverse des aiguilles d'une montre à l'écran)
+    const dx=Math.sin(a),dz=-Math.cos(a);
+    ctx.save();ctx.translate(x,z);ctx.rotate(Math.atan2(dz,dx));
+    ctx.beginPath();ctx.moveTo(2.6,0);ctx.lineTo(.4,-1.4);ctx.lineTo(.4,-.5);ctx.lineTo(-2.4,-.5);ctx.lineTo(-2.4,.5);ctx.lineTo(.4,.5);ctx.lineTo(.4,1.4);ctx.closePath();ctx.fill();
+    ctx.restore()}
+}
+{const _dg=drawGround;drawGround=function(now){_dg(now);drawBays();drawRing(now/1000)}}
+if(/[?&]debug=1\b/.test(location.search))window.__park={BAYS};
 
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */
