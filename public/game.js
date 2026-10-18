@@ -1669,7 +1669,7 @@ function findTarget(){
   let bd=1e9;
   const chased=cops.some(c=>!c.calm)||threat,nc=cops.reduce((m,c)=>Math.min(m,Math.hypot(c.x-P.x,c.z-P.z)),1e9);
   for(const s of SHOPS){const d=Math.hypot(P.x-s.x,P.z-s.z)-1;if(d<4&&d<bd){bd=d;
-    tgt=chased?(nc>22?{k:'hide',s,label:'Se cacher : '+s.name}:{k:'info',label:'Flics trop près pour se cacher'}):{k:'shop',s,label:'Entrer : '+s.name}}}
+    tgt=chased?(nc>15?{k:'hide',s,label:'Se cacher : '+s.name}:{k:'info',label:'Flics trop près pour se cacher'}):{k:'shop',s,label:'Entrer : '+s.name}}}
   if(LAB){const d=Math.hypot(P.x-LAB.sh.door.x,P.z-LAB.sh.door.z);if(d<3.2&&d<bd){bd=d;tgt={k:'enterlab',label:'Entrer dans le labo'}}}
   if(CAR){const d=Math.hypot(P.x-CAR.x,P.z-CAR.z);if(d<4.2&&d<bd){bd=d;tgt={k:'enter',label:'Monter : '+VM[CAR.id].name}}}
   for(const p of peds){const d=Math.hypot(P.x-p.x,P.z-p.z);if(d>=3.4||d>=bd)continue;
@@ -4502,16 +4502,16 @@ const COP_LOOK={skin:0xe3b895,shirt:0x1f2e4a,pants:0x1a2236,shoe:0x111111,hair:0
 let FCOPS=[];
 /* semer la police : les flics ne savent où tu es que s'ils te voient (SEE m). Hors de leur vue pendant LOSE s, ils perdent ta trace. */
 const CHASE={lost:0,on:0,tip:0,lostT:0};
-const copSee=()=>TOD.n>.5?55:75,COP_LOSE=5;
+const copSee=()=>TOD.n>.5?40:55,COP_LOSE=3;
 const copLOS=(x0,z0,x1,z1)=>{const d=Math.hypot(x1-x0,z1-z0),n=Math.ceil(d/2.5);for(let i=1;i<n;i++){const t=i/n;if(maskAt(x0+(x1-x0)*t,z0+(z1-z0)*t)===4)return false}return true};
-const copSpeed=()=>{const pv=P.def.vmax*(P.def.kind==='bike'||P.def.kind==='foot'?1:mot());return clamp(pv*.86+3,24,72)+(M?4:0)};
+const copSpeed=()=>{const pv=P.def.vmax*(P.def.kind==='bike'||P.def.kind==='foot'?1:mot());return clamp(pv*.76+2,20,64)+(M?3:0)};
 updCops=function(dt){
   const carrying=bagTot()>0||M,night=TOD.n,op=opLilas();
-  const patrol=Math.max(2,Math.round((op?9:5)*(1-.3*night)))+(G.heat>=40?1:0);
-  const chase=HIDE?0:(carrying||G.heat>=60)?Math.min(6,Math.floor(G.heat/18*(1.15-.5*night))):0;
+  const patrol=Math.max(1,Math.round((op?5:3)*(1-.3*night)));
+  const chase=HIDE?0:(carrying||G.heat>=60)?Math.min(3,Math.floor(G.heat/25*(1.1-.5*night))):0;
   const want=patrol+chase;
   spawnT-=dt;
-  if(cops.length<want&&spawnT<=0){const nc=cops.filter(c=>!c.calm).length<chase,p=randRoadPoint(P.x,P.z,nc?170:80,nc?280:230),a=mkAI({k:'sedan',c:0xf2f2f4,cop:1},p.x,p.z,R(0,6.28),2.3);a.catch=0;a.calm=true;a.path=[];cops.push(a);spawnT=chase>cops.filter(c=>!c.calm).length?2.5:3}
+  if(cops.length<want&&spawnT<=0){const nc=cops.filter(c=>!c.calm).length<chase,p=randRoadPoint(P.x,P.z,nc?110:80,nc?190:230),a=mkAI({k:'sedan',c:0xf2f2f4,cop:1},p.x,p.z,R(0,6.28),2.3);a.catch=0;a.calm=true;a.path=[];cops.push(a);spawnT=chase>cops.filter(c=>!c.calm).length?2.5:3}
   const ord=cops.slice().sort((a,b)=>Math.hypot(a.x-P.x,a.z-P.z)-Math.hypot(b.x-P.x,b.z-P.z));
   ord.forEach((c,i)=>{const w=i<chase;if(c.calm&&w){c.path=[];c.t=0;const d=Math.hypot(c.x-P.x,c.z-P.z);}c.calm=!w});
   let chasing=0,seeNow=0;const SEE=copSee(),vt=copSpeed();
@@ -4544,7 +4544,7 @@ updCops=function(dt){
   updFootCops(dt);
 };
 function updFootCops(dt){
-  const want=opLilas()?(MOBILE?8:12):(MOBILE?4:6);let tries=0;
+  const want=opLilas()?(MOBILE?4:6):(MOBILE?2:3);let tries=0;
   while(FCOPS.length<want&&tries++<6){
     const n=RN[Math.floor(Math.random()*RN.length)],d=Math.hypot(n.x-P.x,n.z-P.z);if(d>260||d<50)continue;
     const rd=ROADS[n.r],side=Math.random()<.5?1:-1,sw=(rd.w/2+2.4)*side,q0=roadPos(n.r,rd.cum[n.k],sw);{const m=maskAt(q0[0],q0[1]);if(m===2||m===4)continue}
