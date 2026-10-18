@@ -5754,6 +5754,9 @@ function drawRing(t){
 }
 {const _dg=drawGround;drawGround=function(now){_dg(now);drawBays();drawRing(now/1000)}}
 if(/[?&]debug=1\b/.test(location.search))window.__park={BAYS};
+/* plus de gérants qui viennent te parler (ni en voiture, ni par message) */
+startMeeting=function(){meetT=1e9};
+{const o=updMeeting;updMeeting=function(dt){if(meetCar){meetCar=null}meetT=1e9}}
 
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */
