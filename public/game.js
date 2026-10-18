@@ -5608,6 +5608,101 @@ function drawSignals(){
 {const _dg=drawGround;drawGround=function(now){_dg(now);drawSignals()}}
 if(/[?&]debug=1\b/.test(location.search))window.__rules={INTER,lightState,interAhead,get T(){return TL_T},traffic:()=>traffic};
 
+/* ---------- la Banque Centrale (trois banquiers) et le Blanchisseur ---------- */
+/* Guichet 1 : M. Duval (comptes : déposer, retirer). Guichet 2 : Mme Ferrand (épargne : le coffre rapporte des intérêts).
+   Guichet 3 : M. Lacombe, le banquier véreux : il passe l'argent sale en virements propres (20 %, 60 000 € toutes les 10 min),
+   mais seulement si le Blanchisseur t'a présenté. Le Blanchisseur, à la terrasse de la place de la République, explique tout et lave à la main (35 %). */
+const LW_PERIOD=600,LAC_CAP=60000,LAC_FEE=.2,BL_CAP=20000,BL_FEE=.35;
+const LW=()=>{if(!G.lw||typeof G.lw!=='object')G.lw={met:0,lac:0,used:0,bl:0,t:0,int:0,tip:0};return G.lw};
+const lwLeft=()=>Math.ceil((LW_PERIOD-LW().t)/60);
+const BANKERS=[
+  {x:13,name:'Mme Ferrand',role:'Épargne',look:{skin:0xf0c8a5,shirt:0x6a3f5a,pants:0x2b2b33,shoe:0x222222,hair:0x8a5a2a,cap:0,long:1},fn:()=>ferrandDialog()},
+  {x:21,name:'M. Lacombe',role:'Placements',look:{skin:0xd7a67f,shirt:0x1f2a24,pants:0x1d1d20,shoe:0x3a2a1c,hair:0x6a6a6a,cap:0},fn:()=>lacombeDialog()}];
+{const o=buildInterior;buildInterior=function(s){const I=o(s);
+  if(s.type==='banque'){
+    I.walls=I.walls.filter(w=>w.k!=='counter');I.walls.push({x0:1.6,z0:3.6,x1:24.4,z1:4.8,k:'counter'});
+    I.deco=I.deco.filter(d=>d.k!=='vault');I.deco.push({k:'vault',x:24,z:1.4});
+    I.bankers=BANKERS.map(b=>({...b,z:2.4,rx:b.x,rz:6.1}));
+  }
+  return I}}
+{const o=intTarget;intTarget=function(){
+  const t=o(),I=INT;if(!I||!I.bankers)return t;
+  for(const b of I.bankers)if(Math.hypot(I.p.x-b.rx,I.p.z-b.rz)<1.5)return {k:'ibank',b,label:`Guichet : ${b.name} (${b.role})`};
+  if(t&&t.k==='ireg')t.label='Guichet : M. Duval (comptes)';
+  return t}}
+{const o=intAct;intAct=function(t){if(t&&t.k==='ibank'){t.b.fn();Sfx.click();return}o(t)}}
+{const o=drawInterior;drawInterior=function(now){o(now);const I=INT;if(!I||!I.bankers)return;
+  for(const b of I.bankers){drawHuman(b.x,b.z,0,b.look,0,0,ISC,talking?'chat':undefined);const f=(now/1250+b.x)%1;ring(b.rx,b.rz,.6+f*.6,I.T.col,.08,(1-f)*.6)}
+  ctx.textAlign='center';
+  for(const [x,n] of [[I.clerk.x,'M. Duval · Comptes'],...I.bankers.map(b=>[b.x,b.name+' · '+b.role])]){
+    ctx.font='700 .55px "Work Sans",sans-serif';const w=ctx.measureText(n).width+.7;ctx.fillStyle='rgba(20,15,13,.8)';rr(ctx,x-w/2,.55,w,.85,.2);ctx.fill();ctx.fillStyle='#ffd24a';ctx.fillText(n,x,1.15)}
+}}
+function ferrandDialog(){
+  const I=INT,b=G.bank||0,gain=Math.min(5000,Math.floor(b*.01));
+  openDialog('Mme Ferrand · Épargne',I.T.col,{text:`« Votre coffre contient ${fmt(b)}. Il vous rapporte 1 % toutes les cinq minutes, jusqu’à 5 000 € par versement : en ce moment, ${fmt(gain)}. Et la police ne peut pas toucher à ce qui est ici. »`,choices:[
+    {label:'Comment ça marche, l’argent propre ?',fn:()=>'« Seul l’argent propre entre dans nos coffres : votre liquide de la rue, nous n’y touchons pas. Pour le rendre présentable, il faut un commerce… ou un de mes collègues moins regardants. Je n’ai rien dit. »'},
+    {label:'Merci',close:1}]},()=>{});
+}
+function lacombeDialog(){
+  const I=INT,w=LW(),left=Math.max(0,LAC_CAP-w.used);
+  if(!w.lac){
+    const ch=[];
+    if(w.met)ch.push({label:'« Le Blanchisseur m’envoie. »',fn:()=>{w.lac=1;save();setTimeout(lacombeDialog,60);return '« Ah. Il fallait le dire tout de suite. Asseyez-vous. »'}});
+    else ch.push({label:'Qui pourrait me recommander ?',fn:()=>{const b=SPOT&&SPOT.blanch;if(b)WP={x:b.x,z:b.z,label:'Le Blanchisseur'};return '« Allez donc prendre un café sur la place de la République. Un monsieur en blanc, toujours à la même table. S’il vous envoie, on pourra parler. »'}});
+    ch.push({label:'Partir',close:1});
+    openDialog('M. Lacombe · Placements',I.T.col,{text:'« Des placements… discrets ? Je ne vois pas de quoi vous parlez, monsieur. Je ne travaille qu’avec des gens qu’on me présente. »',choices:ch},()=>{});return}
+  openDialog('M. Lacombe · Placements',I.T.col,{text:`« Votre liquide devient un virement tout ce qu’il y a de plus propre. ${Math.round(LAC_FEE*100)} % pour moi. Je peux encore faire ${fmt(left)} ${left<LAC_CAP?`(tout redevient possible dans ${lwLeft()} min)`:'ces dix prochaines minutes'}. » Argent sale sur toi : ${fmt(G.cash)}.`,choices:[
+    ...[5000,20000,60000].map(a=>{const n=Math.min(a,left,Math.floor(G.cash));return {label:`Passer ${fmt(a)} (tu reçois ${fmt(Math.round(a*(1-LAC_FEE)))} propres)`,off:G.cash<a||left<a,fn:()=>lacombeDo(a)}}),
+    {label:`Tout ce que je peux (${fmt(Math.min(left,Math.floor(G.cash)))})`,off:left<1||G.cash<1,fn:()=>lacombeDo(Math.min(left,Math.floor(G.cash)))},
+    {label:'Partir',close:1}]},()=>{});
+}
+function lacombeDo(a){
+  const w=LW();if(a<1||G.cash<a||w.used+a>LAC_CAP)return '« Ça ne passera pas. »';
+  G.cash-=a;G.clean=(G.clean||0)+Math.round(a*(1-LAC_FEE));G.laund=(G.laund||0)+a;w.used+=a;Sfx.cash();
+  let extra='';if(Math.random()<.06){G.heat=Math.min(100,G.heat+15);extra=' Mais un inspecteur du fisc a jeté un œil au dossier… chaleur +15.'}
+  save();setTimeout(()=>{if(INT)lacombeDialog()},1400);
+  return `« C’est fait. ${fmt(Math.round(a*(1-LAC_FEE)))} sur votre compte… enfin, dans votre poche, propres. »${extra}`;
+}
+/* le Blanchisseur : il explique, il lave à la main, il présente son banquier */
+const BL_TXT={
+  base:'« L’argent que tu gagnes en vendant, c’est de l’argent sale : du liquide que tu ne peux pas justifier. Avec ça, tu paies tes graines, ton matériel, tes dealers. Mais une voiture, un commerce, la banque, une amende au commissariat : tout ça se paie en argent propre. Pour passer de l’un à l’autre, il y a trois façons. »',
+  biz:'« Un commerce. Laverie, kebab, coiffeur, station de lavage, garage, boîte de nuit : cherche les panneaux « À VENDRE », dans le Sud et au centre-ville. Le premier, tu peux le payer en liquide, je m’occupe des papiers. Ensuite, chaque commerce avale ton argent sale tout seul, chaque minute, et le recrache propre avec 12 % de frais. Plus il est gros, plus il en avale. C’est le moins cher, mais il faut investir. »',
+  bank:`« La Banque Centrale, au centre-ville. Troisième guichet : M. Lacombe. Dis-lui que tu viens de ma part. Il passe ton liquide en virements propres : ${Math.round(LAC_FEE*100)} % de commission, ${fmt(LAC_CAP)} au plus toutes les dix minutes. Rapide, mais ça coûte. Et range ton argent propre au coffre chez M. Duval, au premier guichet : la police ne peut pas le saisir, et Mme Ferrand le fait fructifier. »`,
+  me:`« Et moi, à cette table. Je lave à la main, tout de suite : ${Math.round(BL_FEE*100)} %, et pas plus de ${fmt(BL_CAP)} toutes les dix minutes. C’est cher, mais quand on est pressé… »`,
+};
+function blanchMenu(first){
+  const w=LW(),left=Math.max(0,BL_CAP-w.bl),col='#f4f1ea';
+  const learn=k=>({label:{biz:'Et les commerces ?',bank:'Et la banque ?',me:'Et toi ?'}[k],fn:()=>{if(k==='bank'){w.met=1;save()}return {text:BL_TXT[k],choices:learnChoices()}}});
+  const learnChoices=()=>[learn('biz'),learn('bank'),learn('me'),{label:'Montre-moi un commerce à vendre',fn:()=>({text:showBiz(),choices:learnChoices()})},{label:'J’ai compris, merci',close:1}];
+  openDialog('Le Blanchisseur',col,{text:first?'« Tiens, un nouveau visage. Vous gagnez de l’argent, mais vous ne pouvez rien en faire, c’est ça ? Asseyez-vous, je vais vous expliquer. »':(typeof blLine==='function'?blLine():'« Encore vous. »')+` Je peux laver à la main : ${Math.round(BL_FEE*100)} %, encore ${fmt(left)}${left<BL_CAP?` (tout redevient possible dans ${lwLeft()} min)`:''}.`,choices:[
+    {label:'Explique-moi comment blanchir',fn:()=>({text:BL_TXT.base,choices:learnChoices()})},
+    ...[1000,5000,20000].map(a=>({label:`Laver ${fmt(a)} (tu récupères ${fmt(Math.round(a*(1-BL_FEE)))})`,off:G.cash<a||left<a,fn:()=>{G.cash-=a;G.clean=(G.clean||0)+Math.round(a*(1-BL_FEE));G.laund=(G.laund||0)+a;w.bl+=a;Sfx.cash();save();return '« Voilà. Comme neuf. »'}})),
+    {label:'Présente-moi à ton banquier',fn:()=>{w.met=1;save();const s=SHOPS.find(s=>s.type==='banque');if(s)WP={x:s.x,z:s.z,label:'Banque Centrale : M. Lacombe'};return '« M. Lacombe, troisième guichet de la Banque Centrale. Dites-lui que vous venez de ma part. Je l’appelle. » (Repère posé sur la banque.)'}},
+    {label:'Partir',close:1}]},()=>{});
+  w.seen=1;w.tip=1;
+}
+function showBiz(){
+  const list=BIZS.filter(b=>!G.biz[b.id]&&bizOpenToBuy(b)).sort((a,b)=>BIZT[a.type].price-BIZT[b.type].price||Math.hypot(a.x-P.x,a.z-P.z)-Math.hypot(b.x-P.x,b.z-P.z));
+  if(!list.length)return '« Vous avez déjà tout acheté. Impressionnant. »';
+  const b=list[0],T=BIZT[b.type];WP={x:b.x,z:b.z,label:T.name+' à vendre'};
+  return `« Commencez petit : ${T.name.toLowerCase()} à vendre, ${fmt(T.price)}. Je vous ai mis un repère. ${!myBiz()?'Celui-là, payez-le en liquide, je m’occupe des papiers.':'Il faudra de l’argent propre.'} »`;
+}
+{const o=talkBlanch;talkBlanch=function(){
+  const s=STO();
+  if(G.mode==='multi'||s.q==='libre'||(s.f.blanchMet&&s.q!=='blanch2')){blanchMenu(!LW().seen);return}
+  o();
+}}
+/* intérêts du coffre, quotas qui se rechargent, conseil au début */
+let lwTipT=25;
+function updLaunder(dt){
+  if(!started||ended)return;const w=LW();
+  w.t+=dt;if(w.t>=LW_PERIOD){w.t=0;w.used=0;w.bl=0}
+  w.int=(w.int||0)+dt;if(w.int>=300){w.int=0;const g=Math.min(5000,Math.floor((G.bank||0)*.01));if(g>0){G.bank+=g;toast(`Banque : ton coffre t’a rapporté ${fmt(g)}.`,'good')}}
+  if(!w.tip&&G.mode==='multi'&&SPOT&&SPOT.blanch&&!paused()){lwTipT-=dt;if(lwTipT<=0&&G.cash>=300){w.tip=1;if(!WP)WP={x:SPOT.blanch.x,z:SPOT.blanch.z,label:'Le Blanchisseur'};
+    toast('💸 Ton argent est sale. Le Blanchisseur (costume blanc, à la terrasse de la place de la République) peut t’apprendre à le blanchir. Suis la flèche.','good')}}
+}
+{const o=updStory;updStory=function(dt){o(dt);updLaunder(dt)}}
+
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */
 const CROSS=[];
