@@ -3327,7 +3327,7 @@ function beginGame(fresh){
   couriers.forEach(c=>{const p=randRoadPoint(homeSpawn().x,homeSpawn().z,10,60);c.x=p.x;c.z=p.z});
   orders.slice().forEach(removeOrder);
   if(fresh)storyBegin();
-  else{setTimeout(()=>toast('De retour au labo.'),400);storyBegin()}
+  else storyBegin()
   if(0){setTimeout(()=>toast('Ton labo a déjà deux pots, un séchoir installé et 5 graines. Plante, puis arrose : l’arrosoir se remplit au robinet, à droite de l’entrée.'),600);setTimeout(()=>toast('Le reste s’achète à la jardinerie (matériel) et à la graineterie (graines), ou se commande à l’ordinateur du labo, livré en camionnette.'),7000)}
 }
 function resetGame(){
@@ -4279,7 +4279,7 @@ function questCheck(dt){
     if(s.q==='tel')setTimeout(()=>toast('📱 Les gérants t’enverront maintenant un message au lieu de venir te voir.','good'),900);
     nextQuest()}
 }
-let qOpen=!MOBILE,qLast='';
+let qOpen=false,qLast='';
 function renderQuest(force){
   const el=$('quest');if(!el)return;
   if(G.mode==='multi'){vis(el,started&&!CINE);if(started&&!CINE)crewCard(el);return}
@@ -5036,7 +5036,7 @@ async function becomeHost(){
     try{const db=await getDb();if(db){const sn=await db.doc('crews/'+CREW.code).get();if(sn.exists){const S=JSON.parse(sn.data().s);applyShared(S)}}}catch(e){}
     CREW.loading=false;CREW.synced=true;
   }
-  if(crewHost()){broadcastSnap();toast('Tu gères la serre '+CREW.code+' : les plantes poussent chez toi et l’état est partagé avec l’équipe.','good')}
+  if(crewHost())broadcastSnap()
 }
 async function crewSaveDoc(){
   try{const db=await getDb();if(db)await db.doc('crews/'+CREW.code).set({t:Date.now(),s:JSON.stringify(sharedOut())})}catch(e){}
@@ -5068,8 +5068,9 @@ function crewCard(el){
   const n=mem.length+1,h=`${G.pvpWins||0}|${CREW.code}|${mem.join()}|${CREW.hostName}|${CREW.synced}|${qOpen}|${crewOn()}|${Object.keys(MP.teams||{}).length}`;
   if(el.dataset.h===h)return;el.dataset.h=h;
   $('qC').textContent='Mode multijoueur · serre de ton équipe';
-  $('qT').textContent=CREW.code?`Équipe ${CREW.code} · ${n}/${TEAM_MAX}`:'Serre partagée';
-  vis($('qP'),true);$('qP').textContent=!crewOn()?'Connexion…':!CREW.synced&&!crewHost()?'Synchronisation du labo…':crewHost()?'Tu gères la serre (les plantes poussent chez toi)':'Chef de serre : '+CREW.hostName;
+  $('qT').textContent=(CREW.code?`Équipe ${CREW.code} · ${n}/${TEAM_MAX}`:'Serre partagée')+(qOpen?' ▴':' ▾');
+  vis($('qC'),qOpen);vis($('qD'),qOpen);
+  vis($('qP'),qOpen);$('qP').textContent=!crewOn()?'Connexion…':!CREW.synced&&!crewHost()?'Synchronisation du labo…':crewHost()?'Tu gères la serre (les plantes poussent chez toi)':'Chef de serre : '+CREW.hostName;
   $('qD').textContent=`Avec toi : ${mem.length?mem.join(', '):'personne pour l’instant. Donne le code '+CREW.code+' à tes amis.'}${(()=>{const o=Object.keys(MP.teams||{}).filter(c=>c!==CREW.code).length;return o?` · ${o} autre${o>1?'s':''} équipe${o>1?'s':''} en ville`:''})()}`;vis($('qD'),qOpen);
   vis($('qS'),qOpen);$('qS').textContent=`Labo, graines, récolte, réserve et équipe sont communs ; ton argent et ton sac restent à toi. Rivaux (en rouge) : frappe-les pour les dépouiller, ou braque leur serre depuis la porte du labo (Options). Bagarres gagnées : ${G.pvpWins||0}.`;
 }

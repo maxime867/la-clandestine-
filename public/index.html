@@ -294,6 +294,12 @@ body.gp #hud:not(.car) #actBox{bottom:calc(104px + env(safe-area-inset-bottom))}
 
 /* plus de mode histoire : une seule carte au lobby */
 .modes{grid-template-columns:minmax(0,1fr)}
+
+/* écran épuré : on cache ce qui ne sert pas en jeu */
+.stockbox,#hClock,#hOnline,.hbar.goal{display:none!important}
+#toasts .toast:nth-last-child(n+3){display:none}
+#quest.crew{cursor:pointer}
+#quest.crew #qT{font-size:13px}
 </style>
 <script src="claude-shim.js"></script>
 </head>
@@ -304,7 +310,7 @@ body.gp #hud:not(.car) #actBox{bottom:calc(104px + env(safe-area-inset-bottom))}
   <div id="hud" hidden>
     <div class="stats">
       <div class="row">
-        <div class="chipbox money" title="Argent sale : ce que rapportent les ventes"><small>Sale · objectif 10 M€</small><b id="hCash">0 €</b><div class="hbar goal"><i id="hGoalBar"></i></div></div>
+        <div class="chipbox money" title="Argent sale : ce que rapportent les ventes"><small>Argent sale</small><b id="hCash">0 €</b><div class="hbar goal"><i id="hGoalBar"></i></div></div>
         <div class="chipbox money clean" title="Argent propre : blanchi par tes commerces"><small>Propre</small><b id="hClean">0 €</b></div>
         <div class="chipbox money" id="hBankBox" hidden><small>Banque</small><b id="hBank">0 €</b></div>
         <div class="chipbox stockbox"><small>Labo : graines · récolte · réserve</small><b><span id="hSeeds">0</span> · <span id="hRaw">0</span> · <span id="hStock">0/0</span></b></div>
