@@ -5445,6 +5445,169 @@ function policeDialog(){
 /* poursuivi par la police : pas question de se cacher au commissariat */
 {const o=findTarget;findTarget=function(){o();if(tgt&&tgt.k==='hide'&&tgt.s.type==='commissariat')tgt={k:'info',label:'Te cacher au commissariat ? Mauvaise idée.'}}}
 
+/* ---------- code de la route : feux, stops, giratoire, limitations, distances, piétons ---------- */
+/* Les carrefours sont trouvés sur le graphe des routes. Avec une grande avenue : feux tricolores (deux axes qui alternent).
+   Entre petites rues : stop (arrêt complet, puis on passe si c'est libre). Autour de la place : giratoire (on cède le passage à ceux qui tournent).
+   Limitations : 50 km/h sur les avenues, 40 km/h dans les rues, 30 km/h dans les Jardins et à La Butte.
+   Les voitures gardent leurs distances, s'arrêtent pour les piétons sur la chaussée, et la police note les feux rouges grillés. */
+const INTER=[],IGRID=new Map(),IG=40;
+const igKey=(x,z)=>Math.floor((x+640)/IG)+','+Math.floor((z+640)/IG);
+(function(){
+  const J=[];
+  for(const n of RN)for(const m of n.adj){const o=NODES[m];if(o&&o.r!==n.r){J.push(n);break}}
+  for(const n of J){
+    let c=INTER.find(I=>Math.hypot(I.sx/I.n-n.x,I.sz/I.n-n.z)<18);
+    if(!c){c={sx:0,sz:0,n:0,nodes:[],roads:new Set()};INTER.push(c)}
+    c.sx+=n.x;c.sz+=n.z;c.n++;c.nodes.push(n);c.roads.add(n.r);
+  }
+  INTER.forEach((I,id)=>{
+    I.id=id;I.x=I.sx/I.n;I.z=I.sz/I.n;
+    const rs=[...I.roads].map(r=>ROADS[r]);
+    I.R=Math.max(...rs.map(r=>r.w))/2+2.5;
+    const ring=rs.some(r=>r.closed),major=rs.some(r=>r.major&&!r.closed);
+    I.type=ring?'round':major?'light':'stop';
+    // branches : directions des routes qui partent du carrefour
+    const arms=[];
+    for(const n of I.nodes)for(const m of n.adj){const o=NODES[m];if(!o||I.nodes.includes(o))continue;if(Math.hypot(o.x-I.x,o.z-I.z)<Math.hypot(n.x-I.x,n.z-I.z))continue;const dx=o.x-n.x,dz=o.z-n.z,l=Math.hypot(dx,dz);if(l<1)continue;
+      const a=Math.atan2(dx/l,dz/l);if(arms.some(b=>Math.abs(Math.atan2(Math.sin(a-b.a),Math.cos(a-b.a)))<.45))continue;
+      arms.push({a,ux:dx/l,uz:dz/l,w:ROADS[o.r].w,ring:ROADS[o.r].closed})}
+    I.arms=arms;I.ax=arms.length?arms[0].a:0;
+    I.off=((Math.abs(I.x)*7+Math.abs(I.z)*3)%22);
+    const k=igKey(I.x,I.z);if(!IGRID.has(k))IGRID.set(k,[]);IGRID.get(k).push(I);
+  });
+})();
+let TL_T=0;
+const axisOf=(I,x,z)=>{const a=Math.atan2(x-I.x,z-I.z);return Math.abs(Math.cos(a-I.ax))>=.7071?0:1};
+function lightState(I,ax){const t=(TL_T+I.off)%22;if(ax===0)return t<8?'g':t<10?'y':'r';return t>=11&&t<19?'g':t>=19&&t<21?'y':'r'}
+/* le prochain carrefour devant un véhicule */
+function interAhead(e){
+  const hx=Math.sin(e.th),hz=Math.cos(e.th);let best=null,bf=1e9;
+  for(const [ox,oz] of [[0,0],[hx*IG*.6,hz*IG*.6]]){const ci=Math.floor((e.x+ox+640)/IG),cj=Math.floor((e.z+oz+640)/IG);
+    for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)for(const I of IGRID.get((ci+a)+','+(cj+b))||[]){
+      const dx=I.x-e.x,dz=I.z-e.z,fwd=dx*hx+dz*hz,lat=Math.abs(dx*hz-dz*hx);
+      if(fwd<-2||fwd>45||lat>I.R+5)continue;if(fwd<bf){bf=fwd;best=I}}}
+  return best?{I:best,fwd:bf}:null;
+}
+const brakeV=d=>Math.sqrt(2*4.5*Math.max(0,d)); // vitesse qui permet de s'arrêter dans la distance d
+const VEHS=()=>traffic.concat(cops,gangs||[],couriers||[]);
+/* personne ne roule dans le carrefour (sauf ceux qui attendent à leur ligne) */
+function interClear(I,e){
+  const list=VEHS();if(P.def.kind!=='foot')list.push(P);
+  for(const o of list){if(o===e)continue;const d=Math.hypot(o.x-I.x,o.z-I.z),v=Math.abs(o.v||Math.hypot(o.vx||0,o.vz||0));
+    if(d<I.R+1&&v>.5)return false;
+    if(d<I.R+10&&v>3&&o.go===I.id)return false;
+    if(I.type==='round'&&d<I.R+14&&v>2&&o.onRing)return false}
+  return true;
+}
+/* vitesse permise par le carrefour devant (null = rien à respecter) */
+function interRule(e,dt){
+  const A=interAhead(e);if(!A){e.wait=null;return null}
+  const I=A.I,d=A.fwd-(I.R+6);
+  if(e.go===I.id)return null;
+  if(d<-1){e.go=I.id;return null}
+  if(I.type==='round'&&e.onRing)return null;
+  if(I.type==='light'){
+    const s=lightState(I,axisOf(I,e.x,e.z));
+    if(s==='g'){if(d<3)e.go=I.id;return null}
+    if(s==='y'&&d<e.v*.8){e.go=I.id;return null}
+    return brakeV(d-1.2);
+  }
+  // stop (arrêt complet) ou giratoire (cédez le passage)
+  if(!e.wait||e.wait.id!==I.id)e.wait={id:I.id,t:0};
+  if(d>2.5)return Math.max(I.type==='round'?4:2,brakeV(d-1));
+  if(I.type==='stop'&&e.v>1){return 0}
+  e.wait.t+=dt;
+  if((I.type==='round'||e.wait.t>.9)&&interClear(I,e)||e.wait.t>7){e.go=I.id;e.wait=null;return null}
+  return 0;
+}
+/* limitations de vitesse (m/s) */
+function speedLimit(e){
+  const n=nearestNode(e.x,e.z);if(!n)return 14;const r=ROADS[n.r];e.onRing=r.closed;
+  if(r.closed)return 9;
+  const dk=districtAt(e.x,e.z).key;
+  if(dk==='cite'||dk==='butte')return r.major?11:8.5;
+  return r.major?14:11;
+}
+updTraffic=function(dt,fx,fz,obst){
+  TL_T+=dt;
+  let tries=0;
+  while(traffic.length<TRAFN&&tries++<4){
+    const p=randRoadPoint(fx,fz,150,340);
+    const bus=Math.random()<.08,e=mkAI(bus?{k:'bus',c:pick([0x2f6fb0,0xd8c23a,0x3a9a5a])}:{k:pick(CARK),c:pick(CARCOLS)},p.x,p.z,0,bus?3:2.0);
+    e.civ=1;e.base=bus?R(9,11):R(11.5,14.5);e.sp=e.base;
+    newRoute(e);
+    if(e.path.length)e.th=Math.atan2(e.path[0][0]-e.x,e.path[0][1]-e.z);
+    if(Math.hypot(e.x-fx,e.z-fz)<130)continue;
+    traffic.push(e);
+  }
+  for(let i=traffic.length-1;i>=0;i--){
+    const e=traffic[i];
+    if(Math.hypot(e.x-fx,e.z-fz)>430){traffic.splice(i,1);continue}
+    if(!e.path.length)newRoute(e);
+    if(!e.base)e.base=e.sp||12;
+    const hx=Math.sin(e.th),hz=Math.cos(e.th);
+    // distance au véhicule (ou au joueur) devant
+    let gap=1e9;
+    for(const o of obst){if(o===e)continue;const dx=o.x-e.x,dz=o.z-e.z,fwd=dx*hx+dz*hz;if(fwd<=0||fwd>40)continue;if(Math.abs(dx*hz-dz*hx)<2.9)gap=Math.min(gap,fwd)}
+    // piétons sur la chaussée devant : on s'arrête
+    for(const p of peds){if(p.ko>0)continue;const dx=p.x-e.x,dz=p.z-e.z,fwd=dx*hx+dz*hz;if(fwd<=0||fwd>16)continue;if(Math.abs(dx*hz-dz*hx)<2.6&&maskAt(p.x,p.z)===1)gap=Math.min(gap,fwd+1.5)}
+    let vt=Math.min(e.base,speedLimit(e));
+    vt=Math.min(vt,brakeV(gap-6.5));
+    const blockedByCar=vt<.5;
+    const r=interRule(e,dt);if(r!=null)vt=Math.min(vt,r);
+    // jamais bloqué pour toujours (sauf à un feu rouge ou un stop, où on attend son tour)
+    e.stuck=blockedByCar&&(r==null||r>.5)?(e.stuck||0)+dt:0;if(e.stuck>9){vt=6;if(e.stuck>12)e.stuck=0}
+    e.sp=vt;
+    if(vt<e.v)e.v=Math.max(vt,e.v-9*dt); // freinage franc
+    followPath(e,dt,vt);
+    e.brk=vt<e.v-1||vt<.5&&e.v>.3;
+  }
+};
+/* feu rouge grillé par le joueur sous les yeux d'une patrouille */
+let RLW={id:-1,d:0,cd:0};
+function checkRedLight(dt){
+  RLW.cd=Math.max(0,RLW.cd-dt);
+  if(!started||paused()||P.def.kind==='foot'||Math.abs(P.v)<6){RLW.id=-1;return}
+  const A=interAhead(P);if(!A||A.I.type!=='light'){RLW.id=-1;return}
+  const I=A.I,d=A.fwd-(I.R+6);
+  if(RLW.id===I.id&&RLW.d>0&&d<=0&&lightState(I,axisOf(I,P.x,P.z))==='r'&&RLW.cd<=0){
+    RLW.cd=8;
+    if(cops.some(c=>c.calm&&Math.hypot(c.x-P.x,c.z-P.z)<80)||FCOPS.some(c=>Math.hypot(c.x-P.x,c.z-P.z)<40)){G.heat=Math.min(100,G.heat+12);toast('Feu rouge grillé sous les yeux d’une patrouille ! Chaleur +12.','bad')}
+    else if(Math.random()<.5)toast('Feu rouge grillé…');
+  }
+  RLW.id=I.id;RLW.d=d;
+}
+{const o=updStory;updStory=function(dt){o(dt);checkRedLight(dt)}}
+/* dessin : lignes d'arrêt, feux, panneaux stop, cédez-le-passage */
+function drawSignals(){
+  const night=TOD.n>.35;
+  for(const I of INTER){if(!inView(I.x,I.z,I.R+12))continue;
+    for(const A of I.arms){
+      if(I.type==='round'&&A.ring)continue;
+      const hw=A.w/2,R0=I.R+6,rx=A.uz,rz=-A.ux; // à droite pour qui arrive par cette branche
+      const sx=I.x+A.ux*R0,sz=I.z+A.uz*R0;
+      // ligne d'arrêt sur la voie qui arrive
+      ctx.strokeStyle='rgba(240,236,226,.85)';ctx.lineWidth=I.type==='round'?.3:.6;if(I.type==='round')ctx.setLineDash([.8,.8]);
+      ctx.beginPath();ctx.moveTo(sx,sz);ctx.lineTo(sx+rx*(hw-.6),sz+rz*(hw-.6));ctx.stroke();ctx.setLineDash([]);
+      const px=sx+rx*(hw+1.3)+A.ux*.6,pz=sz+rz*(hw+1.3)+A.uz*.6;
+      if(I.type==='light'){
+        const s=lightState(I,axisOf(I,I.x+A.ux*10,I.z+A.uz*10)),c=s==='g'?'#3fd06a':s==='y'?'#f2c230':'#ff3b2f';
+        ctx.fillStyle='#1d1f22';ctx.beginPath();ctx.arc(px,pz,.95,0,6.3);ctx.fill();
+        if(night){ctx.fillStyle=c+'55';ctx.beginPath();ctx.arc(px,pz,2.2,0,6.3);ctx.fill()}
+        ctx.fillStyle=c;ctx.beginPath();ctx.arc(px,pz,.62,0,6.3);ctx.fill();
+      }else if(I.type==='stop'){
+        ctx.fillStyle='#c62a22';ctx.beginPath();for(let k=0;k<8;k++){const a=k/8*6.283+.39;ctx.lineTo(px+Math.cos(a)*.95,pz+Math.sin(a)*.95)}ctx.closePath();ctx.fill();
+        ctx.strokeStyle='#fff';ctx.lineWidth=.12;ctx.stroke();
+      }else{
+        ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(px+A.ux*.9,pz+A.uz*.9);ctx.lineTo(px-A.ux*.6+rx*.8,pz-A.uz*.6+rz*.8);ctx.lineTo(px-A.ux*.6-rx*.8,pz-A.uz*.6-rz*.8);ctx.closePath();ctx.fill();
+        ctx.strokeStyle='#c62a22';ctx.lineWidth=.22;ctx.stroke();
+      }
+    }
+  }
+}
+{const _dg=drawGround;drawGround=function(now){_dg(now);drawSignals()}}
+if(/[?&]debug=1\b/.test(location.search))window.__rules={INTER,lightState,interAhead,get T(){return TL_T},traffic:()=>traffic};
+
 /* ---------- plus de vie : passages piétons, chiens promenés, enseignes des boutiques ---------- */
 /* passages piétons : de part et d'autre de chaque carrefour */
 const CROSS=[];
