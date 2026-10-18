@@ -291,6 +291,9 @@ body.gp #bAct::before{content:"Ⓐ ";opacity:.85}
 body.gp #bOpt::before{content:"Ⓨ ";opacity:.85}
 body.gp #bPunch small::before{content:"Ⓧ "}
 body.gp #hud:not(.car) #actBox{bottom:calc(104px + env(safe-area-inset-bottom))}
+
+/* plus de mode histoire : une seule carte au lobby */
+.modes{grid-template-columns:minmax(0,1fr)}
 </style>
 <script src="claude-shim.js"></script>
 </head>
@@ -379,9 +382,9 @@ body.gp #hud:not(.car) #actBox{bottom:calc(104px + env(safe-area-inset-bottom))}
   <div id="start" hidden>
     <div class="sheet pad lobby">
       <h1>La Serre Clandestine</h1>
-      <p class="note lsub">Le quartier des Lilas, ses deux gangs, ses flics et ses serres. Choisis comment tu veux jouer.</p>
+      <p class="note lsub">Le quartier des Lilas, ses deux gangs, ses flics et ses serres. Crée ton équipe ou rejoins-en une : jusqu’à 4 par serre, plusieurs équipes dans la même ville.</p>
       <div class="modes">
-        <section class="mode story" aria-labelledby="mStoryT">
+        <section class="mode story" aria-labelledby="mStoryT" hidden>
           <span class="mtag">Solo</span>
           <h2 id="mStoryT">Mode histoire</h2>
           <p>Dix-neuf ans, viré de chez toi, 150 € en poche. El Refe t’apprend tout… contre 30 % de tes gains, à vie. Cinq chapitres : la rue, les flics, l’argent sale, la taupe, la trahison.</p>
@@ -391,8 +394,8 @@ body.gp #hud:not(.car) #actBox{bottom:calc(104px + env(safe-area-inset-bottom))}
         </section>
         <section class="mode multi" aria-labelledby="mMultiT">
           <span class="mtag">Équipes de 4</span>
-          <h2 id="mMultiT">Mode multijoueur</h2>
-          <p>Pas d’histoire. Forme une équipe de 4 joueurs au plus : vous partagez la même serre (labo, plantes, graines, réserve, équipe de dealers). Plusieurs équipes jouent en même temps dans la même ville. Chacun vend avec son propre sac et garde son argent.</p>
+          <h2 id="mMultiT">Ta serre</h2>
+          <p>Forme une équipe de 4 joueurs au plus, ou joue seul : vous partagez la même serre (labo, plantes, graines, réserve, équipe de dealers). Plusieurs équipes jouent en même temps dans la même ville. Chacun vend avec son propre sac et garde son argent.</p>
           <label class="field">Ton pseudo<input id="crewNick" maxlength="18" autocomplete="off"></label>
           <div class="chips"><button class="btn" id="crewNew">Créer une équipe</button><button class="btn" id="crewCont" hidden></button></div>
           <div class="chips" style="align-items:center"><input id="crewIn" placeholder="CODE" maxlength="5" aria-label="Code de la serre" autocomplete="off" style="width:120px;letter-spacing:.18em;text-transform:uppercase"><button class="btn ghost" id="crewJoin">Rejoindre avec un code</button></div>
@@ -411,7 +414,7 @@ body.gp #hud:not(.car) #actBox{bottom:calc(104px + env(safe-area-inset-bottom))}
         <div class="item"><b>Manette</b><span>Branche une manette (Xbox, PlayStation…) et appuie sur un bouton. À pied : stick gauche pour marcher, A action, X frapper, Y options, Start sac, Select carte, LB chat. Au volant : RT accélérer, LT freiner, stick pour tourner, B frein à main, X klaxon, RB go fast. Dans les menus : croix pour choisir, A valider, B retour.</span></div>
         <div class="item"><b>Police</b><span>Des patrouilles tournent en permanence. Elles te prennent en chasse si tu chauffes, ou si elles te voient vendre ou frapper. Pour les semer, cache-toi dans une boutique ou roule vite et loin.</span></div>
       </div></details>
-      <div class="chips" style="align-items:center"><input id="startCode" placeholder="XXXX-XXXX" maxlength="9" aria-label="Code de sauvegarde" autocomplete="off"><button class="btn ghost" id="startLoad">Charger une histoire sauvegardée</button><span class="note" id="startMsg"></span></div>
+      <div class="chips" style="align-items:center" hidden><input id="startCode" placeholder="XXXX-XXXX" maxlength="9" aria-label="Code de sauvegarde" autocomplete="off"><button class="btn ghost" id="startLoad">Charger une histoire sauvegardée</button><span class="note" id="startMsg"></span></div>
       <div hidden><div id="goRow"></div><div id="pickBox"><div id="dgrid"></div></div><button id="partyNew"></button><input id="partyIn"><button id="partyJoin"></button><p id="partyMsg"></p></div>
     </div>
   </div>

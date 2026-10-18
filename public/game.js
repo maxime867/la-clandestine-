@@ -3173,7 +3173,7 @@ function tabLabo(){
   const store=MACH.filter(m=>(G.lab.store[m.id]||0)>0);
   if(store.length)s+=`<p class="note" style="color:var(--ok)">À installer : ${store.map(m=>G.lab.store[m.id]+' × '+m.name).join(', ')}.</p>`;
   s+='<div><h2>Tes variétés</h2><div class="list">'+STRAINS.filter(v=>G.unlocked[v.id]||G.seeds[v.id]||G.raw[v.id]||G.stock[v.id]).map(v=>`<div class="item"><b>${v.name}${G.sel===v.id?' <span class="tag ok">plantée par défaut</span>':''}</b><span>Graines ${G.seeds[v.id]||0} · Récolte ${G.raw[v.id]||0} · Produit ${G.stock[v.id]||0} · vente ~${fmt(v.price)}/u.</span>${G.sel===v.id?'':`<button class="btn ghost" data-act="sel:${v.id}">Planter par défaut</button>`}</div>`).join('')+'</div></div>';
-  s+=confirmReset?`<div class="chips"><span class="note">Tout effacer ?</span><button class="btn red" data-act="resetyes">Oui, recommencer</button><button class="btn ghost" data-act="resetno">Non</button></div>`:`<div class="chips"><button class="btn ghost" data-act="lobby">Changer de mode</button><button class="btn ghost" data-act="reset">${G.mode==='multi'?'Repartir de zéro (ton argent)':'Nouvelle partie'}</button></div>`;
+  s+=confirmReset?`<div class="chips"><span class="note">Tout effacer ?</span><button class="btn red" data-act="resetyes">Oui, recommencer</button><button class="btn ghost" data-act="resetno">Non</button></div>`:`<div class="chips"><button class="btn ghost" data-act="lobby">Retour au lobby</button><button class="btn ghost" data-act="reset">${G.mode==='multi'?'Repartir de zéro (ton argent)':'Nouvelle partie'}</button></div>`;
   return s;
 }
 /* à l'ordinateur : commande livrée (frais) ; à la jardinerie : matériel ; à la graineterie : graines (sur place, sans frais) */
